@@ -1,31 +1,56 @@
 const express = require('express');
 const cors = require('cors');
+const mysql = require('mysql2/promise');
+const bcrypt = require('bcrypt');
 require('dotenv').config();
 
 const app = express();
+app.use(cors());
+app.use(express.json());
+
 const PORT = process.env.PORT || 6767;
 
-const mysql = require('mysql2');
-
-const connection = mysql.createConnection({
-  host: 'localhost',
-  port: 3306,
+const db = mysql.createPool({
+  host: '127.0.0.1', // for deployment, use "db"
   user: 'root',
   password: 'root123',
   database: 'bukalapang_db'
 });
 
-connection.connect((err) => {
-  if (err) console.error('Error: ' + err.stack);
-  console.log('Testing connection to MySQL');
+
+//REGISTER
+app.post('/api/register', async (req, res) => {
+  const { email, password, name } = req.body;
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await db.execute(
+      'INSERT INTO users (email, password, name) VALUES (?, ?, ?)',
+      [email, hashedPassword, name]
+    );
+    res.status(201).json({ message: "User registered" });
+  } catch (err) {
+    res.status(500).json({ error: "Registration failed" });
+  }
 });
 
-app.use(cors());
-app.use(express.json());
-app.get('/api/test', (req, res) => {
-  res.json({ message: "Test data retrieval" });
+//LOGIN
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const [rows] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
+    if (rows.length === 0) return res.status(401).json({ error: "User not found" });
+
+    const user = rows[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (isMatch) {
+      res.json({ message: "Login successful", user: { name: user.name, email: user.email } });
+    } else {
+      res.status(401).json({ error: "Wrong password" });
+    }
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`Test Port listening`);
-});
+app.listen(5000, () => console.log('Backend running on http://localhost:6767'));

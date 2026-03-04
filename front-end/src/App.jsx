@@ -1,35 +1,42 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const request = async (endpoint) => {
+    setMsg('requesting');
+    try {
+      const res = await fetch(`http://localhost:5000/api/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name }),
+      });
+      const data = await res.json();
+      setMsg(data.message || data.error);
+    } catch (err) {
+      setMsg('Cant access backend');
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div style={{ padding: '20px' }}>
+      <h1>DB Test Page</h1>
+      
+      <input placeholder="Name (Register only)" onChange={e => setName(e.target.value)} /><br/><br/>
+      <input placeholder="Email" onChange={e => setEmail(e.target.value)} /><br/><br/>
+      <input type="password" placeholder="Password" onChange={e => setPassword(e.target.value)} /><br/><br/>
+      
+      <button onClick={() => request('register')}>Register New User</button>
+      <button onClick={() => request('login')} style={{ marginLeft: '10px' }}>Login</button>
+
+      <div style={{ marginTop: '20px', color: 'blue' }}>
+        <strong>Server Response:</strong> {msg}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </div>
+  );
 }
 
-export default App
+export default App;
