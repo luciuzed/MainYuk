@@ -53,4 +53,4 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-app.listen(5000, () => console.log('Backend running on http://localhost:6767'));
+app.listen(5000, () => console.log('Backend running on http://localhost:5000'));

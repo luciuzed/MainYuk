@@ -5,6 +5,35 @@ import { FaUser, FaLock} from "react-icons/fa";
 
 const LoginPage = () => {
   const [role, setRole] = useState('Customer')
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:5000/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`Welcome, ${data.user.name}!`);
+      } else {
+        setError(data.error || 'Login failed');
+      }
+    } catch (err) {
+      setError('Cannot connect to server');
+    }
+  };
+
+
   return (
     <div className="w-full h-[calc(100vh-80px)] flex ">
       <div className="w-1/2 flex flex-col pr-10 pt-5">
@@ -38,40 +67,48 @@ const LoginPage = () => {
           Welcome back!
         </h1>
       
-
-        <div className="w-full flex justify-center">
-          <div className="relative w-3/4 mb-4">
-            
-            <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            
-            <input
-              type="email"
-              placeholder="Email Address"
-              className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            
+        <form onSubmit={handleLogin}>
+          <div className="w-full flex justify-center">
+            <div className="relative w-3/4 mb-4">
+              
+              <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              
+              <input
+                type="email"
+                placeholder="Email Address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              
+            </div>
           </div>
-        </div>
 
-        <div className="w-full flex justify-center">
-          <div className="relative w-3/4 mb-6">
-            
-            <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            
+          <div className="w-full flex justify-center">
+            <div className="relative w-3/4 mb-6">
+              
+              <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              
+            </div>
           </div>
-        </div>
+          
+          <div className=""><p className="text-red-500 text-center mb-4">{error}</p></div>
 
           <div className="flex justify-center">
             <button className="w-3/4 bg-primary text-white py-3 rounded-full font-semibold cursor-pointer hover:opacity-90 transition">
               Continue
             </button>
           </div>
+        </form>
+
 
           <div className="w-full flex justify-center mt-4">
             <button className="text-primary font-medium hover:underline cursor-pointer">
