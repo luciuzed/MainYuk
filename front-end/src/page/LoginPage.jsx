@@ -4,18 +4,26 @@ import IMAGE from '../assets/ring.jpg'
 import { FaUser, FaLock, FaPhoneAlt, FaEye, FaEyeSlash  } from "react-icons/fa";
 
 const LoginPage = () => {
-  const [role, setRole] = useState('Customer')
+  const [role, setRole] = useState('User')
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [mode, setMode] = useState("login")
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
 
+    console.log("Sending to server:", { email, password }) //debug
+    const url = role === "User" ? "login" : "login-business";
+
     try {
-      const response = await fetch('http://localhost:5000/api/login', {
+      const response = await fetch(`http://localhost:5000/api/${url}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -34,55 +42,57 @@ const LoginPage = () => {
   };
 
   const handleRegister = async (e) => {
-  e.preventDefault();
-  setError('');
+    e.preventDefault();
+    setError('');
 
-  
-  if (password !== confirmPassword) {
-    return setError("Passwords do not match");
-  }
+    const url = role === "User" ? "register" : "register-business";
 
-  try {
-    const response = await fetch('http://localhost:5000/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        name: fullName, 
-        email: email, 
-        password: password 
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      alert("Registration successful!");
-      setMode("login"); 
-    } else {
-      setError(data.error || 'Registration failed');
+    if (!fullName || !email || !password || !confirmPassword) {
+        return setError("Please fill in all fields");
     }
-  } catch (err) {
-    setError('Cannot connect to server');
-  }
-};
 
+    if (password !== confirmPassword) {
+      return setError("Passwords do not match");
+    }
 
-  const [mode, setMode] = useState("login")
-  const [showPassword, setShowPassword] = useState(false)
+    try {
+      const response = await fetch(`http://localhost:5000/api/${url}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: fullName, 
+          email: email, 
+          password: password
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Registration successful!");
+        setMode("login"); 
+      } else {
+        setError(data.error || 'Registration failed');
+      }
+    } catch (err) {
+      setError('Cannot connect to server');
+    }
+  };
+
   return (
     <div className="w-full h-[calc(100vh-80px)] flex ">
       <div className="w-1/2 flex flex-col pr-10 pt-5">
         {mode === "login" && (
           <div className="flex">
             <button
-              onClick={() => setRole("Customer")}
+              onClick={() => setRole("User")}
               className={`flex-1 pb-3 font-semibold ${
-                role === "Customer"
+                role === "User"
                   ? "text-primary border-b-2 border-primary"
                   : "text-gray-400"
               }`} 
             >
-              Customer
+              User
             </button>
 
             <button
@@ -111,13 +121,25 @@ const LoginPage = () => {
 
               <div className="flex gap-8 mb-4">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="accountType" defaultChecked />
+                  <input 
+                    type="radio" 
+                    name="accountType" defaultChecked
+                    value="User"
+                    checked={role === "User"} 
+                    onChange={(e) => setRole(e.target.value)} 
+                  />
                   <span>User</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="accountType" />
-                  <span>Admin</span>
+                  <input 
+                    type="radio" 
+                    name="accountType"
+                    value="Business"
+                    checked={role === "Business"} 
+                    onChange={(e) => setRole(e.target.value)} 
+                  />
+                  <span>Business</span>
                 </label>
               </div>
             </div>
@@ -128,6 +150,8 @@ const LoginPage = () => {
               <input
                 type="text"
                 placeholder="Full Name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -175,6 +199,8 @@ const LoginPage = () => {
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-12 pr-12 py-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
               />
 
@@ -203,6 +229,8 @@ const LoginPage = () => {
                 <input
                   type="password"
                   placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -212,6 +240,8 @@ const LoginPage = () => {
                 <input
                   type="password"
                   placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -219,7 +249,7 @@ const LoginPage = () => {
             </div>
           </div>
         )}
-
+        <div className=""><p className="text-red-500 text-center mb-4">{error}</p></div>
         <div className="flex justify-center">
           <button onClick={mode === "login" ? handleLogin : handleRegister}
           className="w-3/4 bg-primary text-white py-3 rounded-full font-semibold cursor-pointer hover:opacity-90 transition">
@@ -231,7 +261,7 @@ const LoginPage = () => {
             <button
               onClick={() => {
                 setMode(mode === "login" ? "register" : "login");
-                setRole("Customer");
+                setRole("User");
               }}
               className="text-primary font-medium hover:underline cursor-pointer"
             >
