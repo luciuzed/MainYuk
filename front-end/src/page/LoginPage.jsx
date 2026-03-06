@@ -37,7 +37,7 @@ const LoginPage = () => {
   e.preventDefault();
   setError('');
 
-  // Add basic validation
+  
   if (password !== confirmPassword) {
     return setError("Passwords do not match");
   }
@@ -47,7 +47,7 @@ const LoginPage = () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        name: fullName, // Make sure you have a state for fullName
+        name: fullName, 
         email: email, 
         password: password 
       }),
@@ -57,7 +57,7 @@ const LoginPage = () => {
 
     if (response.ok) {
       alert("Registration successful!");
-      setMode("login"); // Switch back to login after success
+      setMode("login"); 
     } else {
       setError(data.error || 'Registration failed');
     }
