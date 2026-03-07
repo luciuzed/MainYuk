@@ -62,7 +62,8 @@ const LoginPage = () => {
         body: JSON.stringify({ 
           name: fullName, 
           email: email, 
-          password: password
+          password: password,
+          phone: phone
         }),
       });
 

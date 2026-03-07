@@ -20,12 +20,12 @@ const db = mysql.createPool({
 
 //REGISTER
 app.post('/api/register', async (req, res) => {
-  const { email, password, name } = req.body;
+  const { email, password, name, phone } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     await db.execute(
-      'INSERT INTO users (email, password, name) VALUES (?, ?, ?)',
-      [email, hashedPassword, name]
+      'INSERT INTO users (email, password, name, phone_number) VALUES (?, ?, ?, ?)',
+      [email, hashedPassword, name, phone]
     );
     res.status(201).json({ message: "User registered" });
   } catch (err) {
@@ -34,12 +34,12 @@ app.post('/api/register', async (req, res) => {
 });
 
 app.post('/api/register-business', async (req, res) => {
-  const { email, password, name } = req.body;
+  const { email, password, name, phone } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     await db.execute(
-      'INSERT INTO admin (email, password, name) VALUES (?, ?, ?)',
-      [email, hashedPassword, name]
+      'INSERT INTO admin (email, password, name, phone_number) VALUES (?, ?, ?, ?)',
+      [email, hashedPassword, name, phone]
     );
     res.status(201).json({ message: "Business registered" });
   } catch (err) {
