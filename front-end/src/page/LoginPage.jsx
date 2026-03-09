@@ -33,9 +33,82 @@ const PasswordInput = ({ placeholder, showPassword, setShowPassword, ...props })
 }
 
 const LoginPage = () => {
-  const [role, setRole] = useState('Customer')
+  const [role, setRole] = useState('User')
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [mode, setMode] = useState("login")
   const [showPassword, setShowPassword] = useState(false)
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    console.log("Sending to server:", { email, password }) //debug
+    const url = role === "User" ? "login" : "login-business";
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/${url}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`Welcome, ${data.user.name}!`);
+      } else {
+        setError(data.error || 'Login failed');
+      }
+    } catch (err) {
+      setError('Cannot connect to server');
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    const url = role === "User" ? "register" : "register-business";
+
+    if (!fullName || !email || !password || !confirmPassword) {
+        return setError("Please fill in all fields");
+    }
+
+    if (password !== confirmPassword) {
+      return setError("Passwords do not match");
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/${url}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: fullName, 
+          email: email, 
+          password: password,
+          phone: phone
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Registration successful!");
+        setMode("login"); 
+      } else {
+        setError(data.error || 'Registration failed');
+      }
+    } catch (err) {
+      setError('Cannot connect to server');
+    }
+  };
+
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const {
@@ -132,15 +205,14 @@ const LoginPage = () => {
         {mode === "login" && (
           <div className="flex mb-5">
             <button
-              type="button"
-              onClick={() => handleRoleChange("Customer")}
+              onClick={() => setRole("User")}
               className={`flex-1 pb-3 font-semibold ${
-                role === "Customer"
+                role === "User"
                   ? "text-primary border-b-2 border-primary"
                   : "text-gray-400"
               }`} 
             >
-              Customer
+              User
             </button>
 
             <button
@@ -218,7 +290,9 @@ const LoginPage = () => {
                       message: "Minimum 3 characters"
                     }
                   })}
-                  className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary"
+                  value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -237,7 +311,9 @@ const LoginPage = () => {
 
               <input
                 type="email"
-                placeholder="Email Address"
+                value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email Address"
                 {...register("email", {
                   required: "Email is required",
                   pattern: {
@@ -263,7 +339,9 @@ const LoginPage = () => {
 
                 <input
                   type="tel"
-                  placeholder="Phone Number"
+                  value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Phone Number"
                   {...register("phone", {
                     required: "Phone number is required",
                     validate: validatePhoneNumber,
@@ -295,6 +373,8 @@ const LoginPage = () => {
             <div className="w-3/4 mb-6">
               <PasswordInput
                 placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 showPassword={showPassword}
                 setShowPassword={setShowPassword}
                 {...register("password", {
@@ -315,6 +395,8 @@ const LoginPage = () => {
               <div className="w-1/2">
                 <PasswordInput
                   placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   showPassword={showPassword}
                   setShowPassword={setShowPassword}
                   {...register("password", {
@@ -334,6 +416,8 @@ const LoginPage = () => {
               <div className="w-1/2">
                 <PasswordInput
                   placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   showPassword={showConfirmPassword}
                   setShowPassword={setShowConfirmPassword}
                   {...register("confirmPassword", {
@@ -351,11 +435,12 @@ const LoginPage = () => {
             </div>
           </div>
         )}
-
+        <div className=""><p className="text-red-500 text-center mb-4">{error}</p></div>
         <div className="flex justify-center">
           <button
             type="submit"
-            className="w-3/4 bg-primary text-white py-3 rounded-full font-semibold cursor-pointer hover:opacity-90 transition"
+            onClick={mode === "login" ? handleLogin : handleRegister}
+          className="w-3/4 bg-primary text-white py-3 rounded-full font-semibold cursor-pointer hover:opacity-90 transition"
           >
             Continue
           </button>
