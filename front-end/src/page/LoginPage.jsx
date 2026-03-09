@@ -321,7 +321,7 @@ const LoginPage = () => {
                   placeholder="Phone Number"
                   {...register("phone", {
                     required: "Phone number is required",
-                    validate: validatePhoneNumber,
+                    validate: validatePhoneNumber, 
                     onChange: (e) => {
                       let value = e.target.value
                       // Auto-format Indonesian numbers
