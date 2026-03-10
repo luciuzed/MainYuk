@@ -1,12 +1,14 @@
-//import './App.css' 
+import React from "react";
+import Navbar from "./components/navbar";
+import Home from "./components/home";
 
 function App() {
-
   return (
     <>
-      {/* <h1 className="bg-">Hello World</h1> */}
+      <Navbar />
+      <Home />
     </>
-  )
+  );
 }
 
-export default App
+export default App;
