@@ -14,12 +14,7 @@ const Navbar = () => {
         <ul className="menu">
             <li><Link to="/">Home</Link></li>
             <li><Link to="/about">About</Link></li>
-            <li><Link to="/#reserve" onClick={(e) => {
-              if (window.location.pathname === '/') {
-                e.preventDefault();
-                document.getElementById('reserve')?.scrollIntoView({ behavior: 'smooth' });
-              }
-            }}>Reserve</Link></li>
+            <li><Link to="/reserve">Reserve</Link></li>
         </ul>
 
         <div>
