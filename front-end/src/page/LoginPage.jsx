@@ -1,11 +1,10 @@
-// import React from 'react'
 import { useState } from 'react'
 import { useForm } from "react-hook-form"
 import IMAGE from '../assets/ring.jpg'
 
 import { FaUser, FaLock, FaPhoneAlt, FaEye, FaEyeSlash } from "react-icons/fa";
 
-const PasswordInput = ({ placeholder, showPassword, setShowPassword, ...props }) => {
+const PasswordInput = ({ placeholder, showPassword, setShowPassword, error, ...props }) => {
   return (
     <div className="relative w-full">
       <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -14,7 +13,9 @@ const PasswordInput = ({ placeholder, showPassword, setShowPassword, ...props })
         type={showPassword ? "text" : "password"}
         placeholder={placeholder}
         {...props}
-        className="w-full pl-12 pr-12 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+        className={`w-full pl-12 pr-12 py-3 text-sm border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
+          error ? 'border-red-500' : 'border-gray-300'
+        }`}
       />
 
       {showPassword ? (
@@ -113,8 +114,8 @@ const LoginPage = () => {
 
   const onSubmit = async (data) => {
     if (mode === "register") {
-      if (!role || !['User', 'Admin'].includes(role)) {
-        setError("Please select a valid role (User or Admin)")
+      if (!role) {
+        setError("Please select a role")
         return
       }
       
@@ -134,43 +135,35 @@ const LoginPage = () => {
     setRole("User")
     setShowPassword(false)
     setShowConfirmPassword(false)
-    reset() // This will clear all form fields including password
+    reset()
   }
 
   const handleRoleChange = (newRole) => {
     setRole(newRole)
-    // Clear password fields when switching roles in login mode
     if (mode === "login") {
-      setValue("password", "") // Clear password field in react-hook-form
+      setValue("password", "")
       setShowPassword(false)
     }
   }
 
-  // Phone number validation function
+  const handleForgotPassword = () => {
+    alert("Forgot password functionality - implement your logic here");
+  }
+
   const validatePhoneNumber = (value) => {
-    // Remove any non-digit characters except + at the beginning
-    let cleaned = value.replace(/[^\d+]/g, '')
-    
-    // Ensure only one + at the beginning if present
-    if (cleaned.indexOf('+') > 0) {
-      cleaned = cleaned.replace(/\+/g, '')
+    if (!value.startsWith('0') && !value.startsWith('+62')) {
+      return "Phone number must start with 0 or +62";
     }
     
-    // Format phone number (you can customize this based on your requirements)
+    let cleaned = value.replace(/[^\d+]/g, '')
+    
     if (cleaned.startsWith('+62')) {
-      // Indonesian format
       if (cleaned.length < 10 || cleaned.length > 15) {
         return "Phone number must be between 10-15 digits"
       }
     } else if (cleaned.startsWith('0')) {
-      // Local format starting with 0
       if (cleaned.length < 10 || cleaned.length > 13) {
         return "Phone number must be between 10-13 digits"
-      }
-    } else {
-      // International format without +
-      if (cleaned.length < 8 || cleaned.length > 15) {
-        return "Phone number must be between 8-15 digits"
       }
     }
     
@@ -178,46 +171,51 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="w-full h-[calc(100vh-80px)] flex ">
+    <div className="w-full min-h-[calc(100vh-80px)] flex flex-col lg:flex-row">
       {/* left */}
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="w-1/2 flex flex-col pr-10 pt-5"
+        className="w-full lg:w-1/2 flex flex-col px-6 lg:pr-10 pt-5"
       >
         {/* option */}
         {mode === "login" && (
-          <div className="flex mb-5">
-            <button
-              onClick={() => setRole("User")}
-              className={`flex-1 pb-3 font-semibold ${
-                role === "User"
-                  ? "text-primary border-b-2 border-primary"
-                  : "text-gray-400"
-              }`} 
-            >
-              User
-            </button>
+          <div className="w-full flex justify-center">
+            <div className="w-3/4 flex mb-5 border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => handleRoleChange("User")}
+                className={`flex-1 pb-3 font-semibold ${
+                  role === "User"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-gray-400"
+                }`}
+              >
+                User
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleRoleChange("Business")}
-              className={`flex-1 pb-3 font-semibold ${
-                role === "Business"
-                  ? "text-primary border-b-2 border-primary"
-                  : "text-gray-400"
-              }`}
-            >
-              Business
-            </button>
+              <button
+                type="button"
+                onClick={() => handleRoleChange("Business")}
+                className={`flex-1 pb-3 font-semibold ${
+                  role === "Business"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-gray-400"
+                }`}
+              >
+                Business
+              </button>
+            </div>
           </div>
         )}
         {/* title */}
         <h1
-          className={`font-semibold text-5xl mx-5 mt-10 justify-center items-center flex ${
+          className={`font-semibold text-5xl mx-5 justify-center items-center flex ${
+            mode === "login" ? "mt-10" : "mt-0"
+          } ${
             mode === "login" ? "mb-15" : "mb-5"
           }`} 
         >
-          {mode === "login" ? "Welcome Back!" : "Create an Account"}
+          {mode === "login" ? "Welcome Back!" : "Create Account"}
         </h1>
         
         
@@ -254,12 +252,12 @@ const LoginPage = () => {
                 </button>
 
               </div>
-              {mode === "register" && !role && (
+              {!role && (
                 <p className="text-red-500 text-sm">Please select a role</p>
               )}
             </div>
             {/* register name input */}
-            <div className="w-3/4">
+            <div className={`w-3/4 ${errors.fullName ? 'mb-2' : 'mb-4'}`}>
               <div className="relative">
                 <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
 
@@ -273,20 +271,24 @@ const LoginPage = () => {
                       message: "Minimum 3 characters"
                     }
                   })}
-                  className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary"
+                  className={`w-full pl-12 pr-4 py-3 text-sm border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
+                    errors.fullName ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
               </div>
 
-              <p className="text-red-500 text-sm h-5 ml-5">
-                {errors.fullName?.message}
-              </p>
+              {errors.fullName && (
+                <p className="text-red-500 text-sm mt-1 ml-5">
+                  {errors.fullName.message}
+                </p>
+              )}
             </div>
 
           </div>
         )}
 
         <div className="w-full flex justify-center">
-          <div className="w-3/4">
+          <div className={`w-3/4 ${errors.email ? 'mb-2' : 'mb-4'}`}>
             <div className="relative">
               <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
 
@@ -300,19 +302,23 @@ const LoginPage = () => {
                     message: "Invalid email"
                   }
                 })}
-                className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary"
+                className={`w-full pl-12 pr-4 py-3 text-sm border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
+                  errors.email ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
             </div>
 
-            <p className="text-red-500 text-sm h-5 ml-5">
-              {errors.email?.message}
-            </p>
+            {errors.email && (
+              <p className="text-red-500 text-sm mt-1 ml-5">
+                {errors.email.message}
+              </p>
+            )}
           </div>
         </div>
 
         {mode === "register" && (
           <div className="w-full flex justify-center">
-            <div className="w-3/4">
+            <div className={`w-3/4 ${errors.phone ? 'mb-2' : 'mb-4'}`}>
               <div className="relative">
                 <FaPhoneAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
 
@@ -324,54 +330,71 @@ const LoginPage = () => {
                     validate: validatePhoneNumber, 
                     onChange: (e) => {
                       let value = e.target.value
-                      // Auto-format Indonesian numbers
                       if (value.startsWith("0")) {
                         value = "+62" + value.slice(1)
                         e.target.value = value
                       }
-                      // Remove any non-digit characters except +
                       value = value.replace(/[^\d+]/g, '')
                       e.target.value = value
                     }
                   })}
-                  className="w-full pl-12 pr-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary"
+                  className={`w-full pl-12 pr-4 py-3 text-sm border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
+                    errors.phone ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
               </div>
 
-              <p className="text-red-500 text-sm h-5 ml-5">
-                {errors.phone?.message}
-              </p>
+              {errors.phone && (
+                <p className="text-red-500 text-sm mt-1 ml-5">
+                  {errors.phone.message}
+                </p>
+              )}
             </div>
           </div>
         )}
 
         {mode === "login" && (
           <div className="w-full flex justify-center">
-            <div className="w-3/4 mb-6">
+            <div className={`w-3/4 ${errors.password ? 'mb-2' : 'mb-4'}`}>
               <PasswordInput
                 placeholder="Password"
                 showPassword={showPassword}
                 setShowPassword={setShowPassword}
+                error={errors.password}
                 {...register("password", {
                   required: "Password is required"
                 })}
               />
-              <p className="text-red-500 text-sm h-5 ml-5">
-                {errors.password?.message}
-              </p>
+              {errors.password && (
+                <p className="text-red-500 text-sm mt-1 ml-5">
+                  {errors.password.message}
+                </p>
+              )}
+              
+              {/* Forgot Password Link */}
+              <div className="text-right mt-2">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-sm text-primary hover:text-primary-dark hover:underline focus:outline-none"
+                >
+                  Forgot Password?
+                </button>
+              </div>
             </div>
           </div>
         )}
 
         {mode === "register" && (
           <div className="w-full flex justify-center">
-            <div className="w-3/4 flex gap-4 mb-6">
+            <div className="w-3/4 flex gap-4 mb-4">
 
-              <div className="w-1/2">
+              <div className={`w-1/2 ${errors.password ? 'mb-0' : ''}`}>
                 <PasswordInput
                   placeholder="Password"
                   showPassword={showPassword}
                   setShowPassword={setShowPassword}
+                  error={errors.password}
                   {...register("password", {
                     required: "Password is required",
                     minLength: {
@@ -381,16 +404,19 @@ const LoginPage = () => {
                   })}
                 />
 
-                <p className="text-red-500 text-sm h-5 ml-5">
-                  {errors.password?.message}
-                </p>
+                {errors.password && (
+                  <p className="text-red-500 text-sm mt-1 ml-5">
+                    {errors.password.message}
+                  </p>
+                )}
               </div>
 
-              <div className="w-1/2">
+              <div className={`w-1/2 ${errors.confirmPassword ? 'mb-0' : ''}`}>
                 <PasswordInput
                   placeholder="Confirm Password"
                   showPassword={showConfirmPassword}
                   setShowPassword={setShowConfirmPassword}
+                  error={errors.confirmPassword}
                   {...register("confirmPassword", {
                     required: "Confirm password is required",
                     validate: (value) =>
@@ -398,9 +424,11 @@ const LoginPage = () => {
                   })}
                 />
 
-                <p className="text-red-500 text-sm h-5 ml-5">
-                  {errors.confirmPassword?.message}
-                </p>
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-sm mt-1 ml-5">
+                    {errors.confirmPassword.message}
+                  </p>
+                )}
               </div>
 
             </div>
@@ -430,11 +458,11 @@ const LoginPage = () => {
       </form>
 
       {/* right */}
-      <div className="w-1/2 flex justify-center items-center ">
+      <div className="hidden lg:flex w-1/2 justify-center items-center">
         <img 
-          src={IMAGE} 
-          alt="Ring" 
-          className="w-3/4 h-5/6 object-cover rounded-xl"
+          src={IMAGE}
+          alt="Ring"
+          className="w-3/4 max-h-[80vh] object-cover rounded-xl"
         />
       </div>
 
