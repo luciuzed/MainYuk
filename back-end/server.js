@@ -35,10 +35,11 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/register-business', async (req, res) => {
   const { email, password, name, phone } = req.body;
+  
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     await db.execute(
-      'INSERT INTO admin (email, password, name, phone_number) VALUES (?, ?, ?, ?)',
+      'INSERT INTO admin (email, password, name, number) VALUES (?, ?, ?, ?)',
       [email, hashedPassword, name, phone]
     );
     res.status(201).json({ message: "Business registered" });
