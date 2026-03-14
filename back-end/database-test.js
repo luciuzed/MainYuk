@@ -1,13 +1,15 @@
 const mysql = require('mysql2/promise');
 
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+
 async function testConnection() {
   try {
     const connection = await mysql.createConnection({
-        host: '127.0.0.1', 
-        port: 3306,
-        user: 'root',
-        password: 'root123',
-        database: 'bukalapang_db' 
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME
     });
 
     console.log("Connected to MySQL Docker");

@@ -2,19 +2,19 @@ const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
-require('dotenv').config();
-
 const app = express();
+
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 6767;
-
 const db = mysql.createPool({
-  host: '127.0.0.1', // for deployment, use "db"
-  user: 'root',
-  password: 'root123',
-  database: 'bukalapang_db'
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
 });
 
 
