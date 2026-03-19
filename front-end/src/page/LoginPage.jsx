@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useForm } from "react-hook-form"
+import { useNavigate } from "react-router-dom"
 import IMAGE from '../assets/ring.jpg'
 
 import { FaUser, FaLock, FaPhoneAlt, FaEye, FaEyeSlash } from "react-icons/fa";
@@ -39,6 +40,7 @@ const LoginPage = () => {
   const [mode, setMode] = useState("login")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const navigate = useNavigate()
 
   const {
     register,
@@ -65,7 +67,13 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        alert(`Welcome, ${data.user.name}!`);
+        const name = data.user?.name || data.admin?.name || 'User'
+        if (role === "User") {
+          navigate("/home")
+        } else {
+          navigate("/dashboard")
+        }
+        return
       } else {
         setError(data.error || 'Login failed');
       }
@@ -73,7 +81,6 @@ const LoginPage = () => {
       setError('Cannot connect to server');
     }
   };
-
   const handleRegister = async (formData) => {
     setError('');
 
@@ -102,8 +109,12 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        alert("Registration successful!");
-        setMode("login"); 
+        if (role === "User") {
+          navigate("/home")
+        } else {
+          navigate("/dashboard")
+        }
+        return
       } else {
         setError(data.error || 'Registration failed');
       }
