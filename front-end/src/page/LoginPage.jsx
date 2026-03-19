@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import IMAGE_RING from '../assets/ring.jpg'
@@ -41,6 +41,11 @@ const LoginPage = () => {
   const [role, setRole] = useState('User')
   const [error, setError] = useState('');
   const [mode, setMode] = useState("login")
+  const [showOtpUI, setShowOtpUI] = useState(false)
+  const [otpCode, setOtpCode] = useState(['', '', '', ''])
+  const [pendingRegisterData, setPendingRegisterData] = useState(null)
+  const [pendingLoginRoute, setPendingLoginRoute] = useState(null)
+  const otpRefs = useRef([])
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [activeSlide, setActiveSlide] = useState(0)
@@ -81,12 +86,10 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        const name = data.user?.name || data.admin?.name || 'User'
-        if (role === "User") {
-          navigate("/venue")
-        } else {
-          navigate("/dashboard")
-        }
+        const targetRoute = role === "User" ? "/venue" : "/dashboard"
+        setPendingLoginRoute(targetRoute)
+        setShowOtpUI(true)
+        setError('')
         return
       } else {
         setError(data.error || 'Login failed');
@@ -123,6 +126,8 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok) {
+        setShowOtpUI(false)
+        setPendingRegisterData(null)
         if (role === "User") {
           navigate("/home")
         } else {
@@ -149,15 +154,22 @@ const LoginPage = () => {
         return
       }
       
-      await handleRegister(data)
-    } else {
-      await handleLogin(data)
+      setPendingRegisterData(data)
+      setShowOtpUI(true)
+      setError('')
+      return
     }
+
+    await handleLogin(data)
   }
 
   const handleModeSwitch = () => {
     setMode(mode === "login" ? "register" : "login")
     setRole("User")
+    setShowOtpUI(false)
+    setPendingRegisterData(null)
+    setPendingLoginRoute(null)
+    setOtpCode(['', '', '', ''])
     setShowPassword(false)
     setShowConfirmPassword(false)
     setError("")
@@ -196,16 +208,138 @@ const LoginPage = () => {
     return true
   }
 
+  const handleOtpChange = (index, value) => {
+    const cleaned = value.replace(/\D/g, '')
+    if (!cleaned) return
+
+    setOtpCode((prev) => {
+      const next = [...prev]
+      next[index] = cleaned.slice(0, 1)
+      return next
+    })
+
+    const nextInput = otpRefs.current[index + 1]
+    if (nextInput) {
+      nextInput.focus()
+    }
+  }
+
+  const handleOtpKeyDown = (index, event) => {
+    if (event.key === 'Backspace') {
+      if (otpCode[index] === '') {
+        const prevInput = otpRefs.current[index - 1]
+        if (prevInput) {
+          prevInput.focus()
+          setOtpCode((prev) => {
+            const next = [...prev]
+            next[index - 1] = ''
+            return next
+          })
+        }
+      } else {
+        setOtpCode((prev) => {
+          const next = [...prev]
+          next[index] = ''
+          return next
+        })
+      }
+      event.preventDefault()
+    }
+
+    if (event.key.length === 1 && /\D/.test(event.key)) {
+      event.preventDefault()
+    }
+  }
+
+  const handleOtpVerify = async () => {
+    const pin = otpCode.join('')
+    if (pin.length < 4) {
+      setError('Please enter all 4 OTP digits')
+      return
+    }
+
+    setError('')
+
+    if (mode === 'register' && pendingRegisterData) {
+      await handleRegister(pendingRegisterData)
+      return
+    }
+
+    if (mode === 'login' && pendingLoginRoute) {
+      setShowOtpUI(false)
+      navigate(pendingLoginRoute)
+      return
+    }
+
+    setError('No pending action available')
+  }
+
   return (
     <div className="w-full min-h-screen-80px flex flex-col lg:flex-row">
 
       {/* LEFT SIDE */}
       <div className="w-full lg:w-1/2 flex items-center px-6 lg:px-10">
-        
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="w-full flex flex-col pt-5"
-        >
+        {showOtpUI ? (
+          <div className="w-full flex flex-col pt-5">
+            <div className="mx-5 mt-10 mb-8">
+              <h2 className="text-4xl font-semibold text-center">Verify OTP</h2>
+              <p className="text-center text-gray-500 mt-2">
+                Enter the 4-digit code sent to your email to continue.
+              </p>
+            </div>
+
+            <div className="w-full flex justify-center">
+              <div className="w-3/4 flex justify-between gap-3">
+                {otpCode.map((digit, index) => (
+                  <input
+                    key={index}
+                    ref={(el) => (otpRefs.current[index] = el)}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(index, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={1}
+                    className="w-14 h-14 text-center text-xl border border-gray-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="w-full flex justify-center mt-10">
+              <button
+                type="button"
+                onClick={handleOtpVerify}
+                className="w-3/4 bg-primary text-white py-3 rounded-full font-semibold hover:opacity-90 transition"
+              >
+                Verify OTP
+              </button>
+            </div>
+
+            <div className="w-full flex justify-center mt-6 text-center text-sm text-gray-500">
+              <button
+                type="button"
+                onClick={() => setShowOtpUI(false)}
+                className="text-primary font-medium hover:underline"
+              >
+                Back to Login / Register
+              </button>
+            </div>
+
+            <div className="w-full flex justify-center mt-2 text-center text-sm text-gray-500">
+              <button
+                type="button"
+                className="text-gray-500 hover:text-primary hover:underline"
+              >
+                Resend OTP
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="w-full flex flex-col pt-5"
+          >
 
           {/* option */}
           {mode === "login" && (
@@ -487,6 +621,7 @@ const LoginPage = () => {
             </button>
           </div>
         </form>
+        )}
       </div>        
       {/* right */}
       <div className="hidden lg:flex w-1/2 justify-center items-center py-5 lg:h-[80vh]">
