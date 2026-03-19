@@ -1,8 +1,10 @@
 import { Routes, Route, useLocation } from "react-router-dom"
 import Navbar from "./components/Navbar"
+
 import LoginPage from "./page/LoginPage"
-import Dashboard from "./page/Dashboard"
 import HomePage from "./page/HomePage"
+import BookingDetailPage from "./page/BookingDetailPage"
+import Dashboard from "./page/Dashboard"
 
 function App() {
   const location = useLocation()
@@ -17,11 +19,13 @@ function App() {
 
       <Routes>
         <Route path="/" element={<></>} />
-        <Route path="/home" element={<HomePage />} />
+        <Route path="/venue" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/venue/:id" element={<BookingDetailPage />} />
       </Routes>
     </div>
+    
   )
 }
 

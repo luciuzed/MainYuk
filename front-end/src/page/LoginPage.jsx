@@ -146,6 +146,7 @@ const LoginPage = () => {
     setRole("User")
     setShowPassword(false)
     setShowConfirmPassword(false)
+    setError("")
     reset()
   }
 
