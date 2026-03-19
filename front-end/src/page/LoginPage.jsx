@@ -69,7 +69,7 @@ const LoginPage = () => {
       if (response.ok) {
         const name = data.user?.name || data.admin?.name || 'User'
         if (role === "User") {
-          navigate("/home")
+          navigate("/venue")
         } else {
           navigate("/dashboard")
         }

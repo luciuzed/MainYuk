@@ -2,7 +2,7 @@ import { Routes, Route, useLocation } from "react-router-dom"
 import Navbar from "./components/Navbar"
 
 import LoginPage from "./page/LoginPage"
-import HomePage from "./page/HomePage"
+import BookingPage from "./page/BookingPage"
 import BookingDetailPage from "./page/BookingDetailPage"
 import Dashboard from "./page/Dashboard"
 
@@ -19,13 +19,12 @@ function App() {
 
       <Routes>
         <Route path="/" element={<></>} />
-        <Route path="/venue" element={<HomePage />} />
+        <Route path="/venue" element={<BookingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/venue/:id" element={<BookingDetailPage />} />
       </Routes>
     </div>
-    
   )
 }
 

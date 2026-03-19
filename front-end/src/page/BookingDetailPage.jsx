@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FaMapMarkerAlt, FaStar, FaChevronLeft, FaRegClock, FaShieldAlt } from 'react-icons/fa';
-import { allExperiences } from './HomePage'; 
+import { allExperiences } from './BookingPage'; 
 
 const BookingDetailPage = () => {
   const { id } = useParams();

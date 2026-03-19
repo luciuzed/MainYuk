@@ -15,7 +15,7 @@ export const allExperiences = Array.from({ length: 25 }, (_, i) => ({
 
 const ITEMS_PER_PAGE = 12;
 
-const HomePage = () => {
+const BookingPage = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -134,4 +134,4 @@ const HomePage = () => {
   );
 };
 
-export default HomePage;
+export default BookingPage;
