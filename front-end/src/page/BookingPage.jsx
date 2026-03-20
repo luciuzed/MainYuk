@@ -63,7 +63,7 @@ const BookingPage = () => {
             key={cat} 
             onClick={() => { setActiveCategory(cat); setCurrentPage(1); }}
             className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
-              activeCategory === cat ? "bg-black text-white border-black" : "bg-white text-gray-400 border-gray-100 hover:text-primary"
+              activeCategory === cat ? "bg-primary text-white " : "bg-white text-gray-400 border-gray-100 hover:text-primary"
             }`}
           >
             {cat}
@@ -82,10 +82,7 @@ const BookingPage = () => {
               </div>
             </div>
             <div className="px-0.5">
-              <div className="flex justify-between items-start">
-                <h3 className="font-bold text-[13px] text-gray-900 truncate pr-2 group-hover:text-primary transition-colors">{item.title}</h3>
-                <span className="text-[10px] font-bold flex items-center gap-0.5 shrink-0"><FaStar className="text-yellow-400" /> {item.rating}</span>
-              </div>
+              <h3 className="flex justify-between items-start font-bold text-[13px] text-gray-900 truncate pr-2 group-hover:text-primary transition-colors">{item.title}</h3>
               <p className="text-gray-400 text-[10px] flex items-center gap-1 mt-0.5"><FaMapMarkerAlt className="text-primary/60 scale-75" /> {item.location}</p>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="text-[13px] font-black text-gray-900">{item.price}</span>
@@ -113,7 +110,7 @@ const BookingPage = () => {
                 key={i} 
                 onClick={() => setCurrentPage(i + 1)} 
                 className={`w-8 h-8 rounded-lg text-[11px] font-bold transition-all ${
-                  currentPage === i + 1 ? "bg-black text-white" : "text-gray-400 hover:text-black"
+                  currentPage === i + 1 ? "bg-primary text-white" : "text-gray-400 hover:text-black"
                 }`}
               >
                 {i + 1}
