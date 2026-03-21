@@ -63,7 +63,7 @@ const BookingPage = () => {
             key={cat} 
             onClick={() => { setActiveCategory(cat); setCurrentPage(1); }}
             className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
-              activeCategory === cat ? "bg-black text-white border-black" : "bg-white text-gray-400 border-gray-100 hover:text-primary"
+              activeCategory === cat ? "bg-primary text-white " : "bg-white text-gray-400 border-gray-100 hover:text-primary"
             }`}
           >
             {cat}
@@ -113,7 +113,7 @@ const BookingPage = () => {
                 key={i} 
                 onClick={() => setCurrentPage(i + 1)} 
                 className={`w-8 h-8 rounded-lg text-[11px] font-bold transition-all ${
-                  currentPage === i + 1 ? "bg-black text-white" : "text-gray-400 hover:text-black"
+                  currentPage === i + 1 ? "bg-primary text-white" : "text-gray-400 hover:text-black"
                 }`}
               >
                 {i + 1}
