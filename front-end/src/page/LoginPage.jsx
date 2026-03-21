@@ -7,6 +7,7 @@ import IMAGE_PADEL from '../assets/padel.jpg'
 import IMAGE_BILIARD from '../assets/biliard.jpg'
 import IMAGE_TENNIS from '../assets/tennis.jpg'
 
+import Cookies from 'js-cookie';
 import { FaUser, FaLock, FaPhoneAlt, FaEye, FaEyeSlash } from "react-icons/fa";
 
 const PasswordInput = ({ placeholder, showPassword, setShowPassword, error, ...props }) => {
@@ -125,6 +126,7 @@ const LoginPage = () => {
         setError('')
         return
       } else if (response.ok) {
+        Cookies.set('user_session', JSON.stringify(data.user), { expires: 7 });
         const targetRoute = role === "User" ? "/venue" : "/dashboard"
         navigate(targetRoute)
         return
@@ -173,6 +175,7 @@ const LoginPage = () => {
         setError('')
         return
       } else if (response.ok) {
+        Cookies.set('user_session', JSON.stringify(data.user), { expires: 7 });
         const targetRoute = role === "User" ? "/home" : "/dashboard"
         navigate(targetRoute)
         return
@@ -368,6 +371,8 @@ const LoginPage = () => {
 
       const data = await response.json()
       if (response.ok && data.success) {
+        const userPayload = data.user || { email: pendingOtpInfo.email, role: pendingOtpInfo.role };
+        Cookies.set('user_session', JSON.stringify(userPayload), { expires: 7 });
         setShowOtpUI(false)
         setOtpCode(['', '', '', ''])
         setPendingOtpInfo(null)
