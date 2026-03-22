@@ -389,8 +389,9 @@ const LoginPage = () => {
           Cookies.set('admin_session', JSON.stringify(adminPayload), { expires: 7 });
           localStorage.setItem('adminId', data.adminId);
         } else {
-          const userPayload = data.user || { email: pendingOtpInfo.email, role: pendingOtpInfo.role };
+          const userPayload = data.user || { email: pendingOtpInfo.email, role: 'User' };
           Cookies.set('user_session', JSON.stringify(userPayload), { expires: 7 });
+          localStorage.setItem('userId', userPayload.userId);
         }
         setShowOtpUI(false)
         setOtpCode(['', '', '', ''])

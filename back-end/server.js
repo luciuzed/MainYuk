@@ -307,6 +307,17 @@ app.post('/api/verify-otp', async (req, res) => {
       const adminData = admin[0];
       return res.json({ message: 'OTP verified', success: true, redirect: '/dashboard', adminId: adminData.id, adminName: adminData.name });
     }
+  } else if (entry.role === 'User') {
+    const [user] = await db.execute('SELECT id, name, email FROM users WHERE email = ?', [email]);
+    if (user.length > 0) {
+      const userData = user[0];
+      return res.json({ 
+        message: 'OTP verified', 
+        success: true, 
+        redirect: '/venue',
+        user: { userId: userData.id, name: userData.name, email: userData.email, role: 'User' }
+      });
+    }
   }
 
   const redirect = entry.role === 'Business' ? '/dashboard' : '/venue';
@@ -506,9 +517,10 @@ app.post('/api/field-slots', async (req, res) => {
     }
 
     for (const slot of slots) {
+      const price = slot.price || 100000;
       await db.execute(
-        'INSERT INTO field_slot (field_id, start_time, end_time, is_booked) VALUES (?, ?, ?, 0)',
-        [fieldId, slot.startTime, slot.endTime]
+        'INSERT INTO field_slot (field_id, start_time, end_time, price, is_booked) VALUES (?, ?, ?, ?, 0)',
+        [fieldId, slot.startTime, slot.endTime, price]
       );
     }
 
@@ -516,6 +528,518 @@ app.post('/api/field-slots', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to create slots' });
+  }
+});
+
+// Delete a field slot
+app.delete('/api/field-slots/:slotId', async (req, res) => {
+  const { slotId } = req.params;
+  const { adminId } = req.body;
+
+  try {
+    // Verify slot exists and get its field
+    const [slot] = await db.execute(
+      'SELECT fs.id, f.admin_id FROM field_slot fs JOIN field f ON fs.field_id = f.id WHERE fs.id = ?',
+      [slotId]
+    );
+
+    if (slot.length === 0) {
+      return res.status(404).json({ error: 'Slot not found' });
+    }
+
+    if (slot[0].admin_id !== parseInt(adminId)) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Don't allow deletion of booked slots
+    const [bookedCheck] = await db.execute('SELECT is_booked FROM field_slot WHERE id = ?', [slotId]);
+    if (bookedCheck[0] && bookedCheck[0].is_booked === 1) {
+      return res.status(409).json({ error: 'Cannot delete booked slot' });
+    }
+
+    await db.execute('DELETE FROM field_slot WHERE id = ?', [slotId]);
+    res.json({ message: 'Slot deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete slot' });
+  }
+});
+
+// ============ BOOKING ENDPOINTS (UC-03) ============
+
+// Get all available slots for a field with pricing and court info
+app.get('/api/field/:fieldId/slots', async (req, res) => {
+  const { fieldId } = req.params;
+  try {
+    const [slots] = await db.execute(
+      `SELECT 
+        fs.id, 
+        fs.field_id, 
+        fs.court_id,
+        c.name as court_name,
+        fs.start_time, 
+        fs.end_time, 
+        fs.price, 
+        fs.is_booked 
+      FROM field_slot fs
+      LEFT JOIN court c ON fs.court_id = c.id
+      WHERE fs.field_id = ? 
+      ORDER BY fs.court_id, fs.start_time ASC`,
+      [fieldId]
+    );
+    res.json(slots);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch slots' });
+  }
+});
+
+// Create a new booking with selected slots
+app.post('/api/bookings', async (req, res) => {
+  const { userId, fieldId, selectedSlotIds } = req.body;
+
+  if (!userId || !fieldId || !selectedSlotIds || !Array.isArray(selectedSlotIds) || selectedSlotIds.length === 0) {
+    return res.status(400).json({ error: 'Missing or invalid required fields: userId, fieldId, selectedSlotIds (non-empty array)' });
+  }
+
+  try {
+    // Verify field exists
+    const [fieldRows] = await db.execute('SELECT id FROM field WHERE id = ?', [fieldId]);
+    if (fieldRows.length === 0) {
+      return res.status(404).json({ error: 'Field not found' });
+    }
+
+    // Get slot details and prices
+    const [slots] = await db.execute(
+      'SELECT id, price, is_booked FROM field_slot WHERE id IN (?) AND field_id = ?',
+      [selectedSlotIds, fieldId]
+    );
+
+    // Check if all requested slots exist
+    if (slots.length !== selectedSlotIds.length) {
+      return res.status(400).json({ error: 'One or more selected slots do not exist or do not belong to this field' });
+    }
+
+    // Check if any slot is already booked
+    const bookedSlot = slots.find(s => s.is_booked === 1);
+    if (bookedSlot) {
+      return res.status(409).json({ error: 'One or more selected slots are already booked' });
+    }
+
+    // Calculate total amount
+    const totalAmount = slots.reduce((sum, slot) => sum + parseFloat(slot.price), 0);
+
+    // Create booking record
+    const [bookingResult] = await db.execute(
+      'INSERT INTO booking (user_id, status, total_amount) VALUES (?, ?, ?)',
+      [userId, 'pending', totalAmount]
+    );
+
+    const bookingId = bookingResult.insertId;
+
+    // Link slots to booking via booking_slots junction table
+    for (const slotId of selectedSlotIds) {
+      await db.execute(
+        'INSERT INTO booking_slots (booking_id, slot_id) VALUES (?, ?)',
+        [bookingId, slotId]
+      );
+    }
+
+    res.status(201).json({
+      id: bookingId,
+      userId,
+      fieldId,
+      status: 'pending',
+      totalAmount,
+      selectedSlots: selectedSlotIds,
+      message: 'Booking created successfully'
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create booking' });
+  }
+});
+
+// Get all bookings for a user
+app.get('/api/user/:userId/bookings', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const [bookings] = await db.execute(`
+      SELECT 
+        b.id,
+        b.user_id,
+        b.booking_date,
+        b.status,
+        b.total_amount,
+        f.id as field_id,
+        f.name as field_name,
+        f.category,
+        f.image_url,
+        f.address,
+        f.city,
+        GROUP_CONCAT(CONCAT(fs.start_time, ' - ', fs.end_time) SEPARATOR ', ') as time_slots
+      FROM booking b
+      JOIN booking_slots bs ON b.id = bs.booking_id
+      JOIN field_slot fs ON bs.slot_id = fs.id
+      JOIN field f ON fs.field_id = f.id
+      WHERE b.user_id = ?
+      GROUP BY b.id, b.user_id, b.booking_date, b.status, b.total_amount, f.id, f.name, f.category, f.image_url, f.address, f.city
+      ORDER BY b.booking_date DESC
+    `, [userId]);
+
+    res.json(bookings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
+
+// Get booking details
+app.get('/api/bookings/:bookingId', async (req, res) => {
+  const { bookingId } = req.params;
+  try {
+    const [booking] = await db.execute(`
+      SELECT 
+        b.id,
+        b.user_id,
+        b.booking_date,
+        b.status,
+        b.total_amount,
+        f.id as field_id,
+        f.name as field_name,
+        f.category,
+        f.image_url,
+        f.address,
+        f.city,
+        f.admin_id
+      FROM booking b
+      JOIN booking_slots bs ON b.id = bs.booking_id
+      JOIN field_slot fs ON bs.slot_id = fs.id
+      JOIN field f ON fs.field_id = f.id
+      WHERE b.id = ?
+      LIMIT 1
+    `, [bookingId]);
+
+    if (booking.length === 0) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    // Get all slots for this booking
+    const [slots] = await db.execute(`
+      SELECT fs.id, fs.start_time, fs.end_time, fs.price
+      FROM booking_slots bs
+      JOIN field_slot fs ON bs.slot_id = fs.id
+      WHERE bs.booking_id = ?
+      ORDER BY fs.start_time ASC
+    `, [bookingId]);
+
+    res.json({
+      ...booking[0],
+      slots
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch booking' });
+  }
+});
+
+// Update booking status (e.g., mark as confirmed after payment)
+app.patch('/api/bookings/:bookingId/status', async (req, res) => {
+  const { bookingId } = req.params;
+  const { status } = req.body;
+
+  if (!status || !['pending', 'confirmed', 'cancelled'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be one of: pending, confirmed, cancelled' });
+  }
+
+  try {
+    const [booking] = await db.execute('SELECT id FROM booking WHERE id = ?', [bookingId]);
+    if (booking.length === 0) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    // Update booking status
+    await db.execute('UPDATE booking SET status = ? WHERE id = ?', [status, bookingId]);
+
+    // If confirmed, mark slots as booked
+    if (status === 'confirmed') {
+      await db.execute(`
+        UPDATE field_slot 
+        SET is_booked = 1 
+        WHERE id IN (
+          SELECT slot_id FROM booking_slots WHERE booking_id = ?
+        )
+      `, [bookingId]);
+    }
+
+    // If cancelled, unmark slots as booked
+    if (status === 'cancelled') {
+      await db.execute(`
+        UPDATE field_slot 
+        SET is_booked = 0 
+        WHERE id IN (
+          SELECT slot_id FROM booking_slots WHERE booking_id = ?
+        )
+      `, [bookingId]);
+    }
+
+    res.json({ 
+      message: `Booking status updated to ${status}`,
+      bookingId,
+      status 
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update booking status' });
+  }
+});
+
+// Get all bookings for an admin's fields (for admin dashboard)
+app.get('/api/admin/:adminId/bookings', async (req, res) => {
+  const { adminId } = req.params;
+  try {
+    const [bookings] = await db.execute(`
+      SELECT 
+        b.id,
+        b.user_id,
+        b.booking_date,
+        b.status,
+        b.total_amount,
+        f.id as field_id,
+        f.name as field_name,
+        f.category,
+        u.name as user_name,
+        u.email as user_email,
+        u.phone_number as user_phone,
+        GROUP_CONCAT(CONCAT(DATE_FORMAT(fs.start_time, '%Y-%m-%d %H:%i'), ' - ', DATE_FORMAT(fs.end_time, '%H:%i')) SEPARATOR ', ') as time_slots
+      FROM booking b
+      JOIN booking_slots bs ON b.id = bs.booking_id
+      JOIN field_slot fs ON bs.slot_id = fs.id
+      JOIN field f ON fs.field_id = f.id
+      JOIN users u ON b.user_id = u.id
+      WHERE f.admin_id = ?
+      GROUP BY b.id, b.user_id, b.booking_date, b.status, b.total_amount, f.id, f.name, f.category, u.id, u.name, u.email, u.phone_number
+      ORDER BY b.booking_date DESC
+    `, [adminId]);
+
+    res.json(bookings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
+
+// ============ COURT-BASED SCHEDULING ENDPOINTS ============
+
+// Get all courts for a field
+app.get('/api/field/:fieldId/courts', async (req, res) => {
+  const { fieldId } = req.params;
+  try {
+    const [courts] = await db.execute(
+      'SELECT id, field_id, name FROM court WHERE field_id = ? ORDER BY name ASC',
+      [fieldId]
+    );
+    res.json(courts);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch courts' });
+  }
+});
+
+// Create a new court for a field
+app.post('/api/field/:fieldId/courts', async (req, res) => {
+  const { fieldId } = req.params;
+  const { adminId, name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Court name is required' });
+  }
+
+  try {
+    // Verify field belongs to admin
+    const [field] = await db.execute('SELECT id FROM field WHERE id = ? AND admin_id = ?', [fieldId, adminId]);
+    if (field.length === 0) {
+      return res.status(403).json({ error: 'Not authorized to modify this field' });
+    }
+
+    const [result] = await db.execute(
+      'INSERT INTO court (field_id, name) VALUES (?, ?)',
+      [fieldId, name]
+    );
+
+    res.status(201).json({ id: result.insertId, field_id: fieldId, name });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create court' });
+  }
+});
+
+// Delete a court
+app.delete('/api/field/:fieldId/courts/:courtId', async (req, res) => {
+  const { fieldId, courtId } = req.params;
+  const { adminId } = req.body;
+
+  try {
+    // Verify field belongs to admin
+    const [field] = await db.execute('SELECT id FROM field WHERE id = ? AND admin_id = ?', [fieldId, adminId]);
+    if (field.length === 0) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    // Delete court (cascade will delete related slots)
+    const [result] = await db.execute(
+      'DELETE FROM court WHERE id = ? AND field_id = ?',
+      [courtId, fieldId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Court not found' });
+    }
+
+    res.json({ message: 'Court deleted' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete court' });
+  }
+});
+
+// Generate hourly slots for a court based on schedule
+app.post('/api/field/:fieldId/generate-slots', async (req, res) => {
+  const { fieldId } = req.params;
+  const { adminId, courtId, courtName, openingTime, closingTime, price, startDate, duration, durationType, daysOfWeek } = req.body;
+
+  if (!courtId || !openingTime || !closingTime || !price || !startDate) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    // Verify field belongs to admin
+    const [field] = await db.execute('SELECT id FROM field WHERE id = ? AND admin_id = ?', [fieldId, adminId]);
+    if (field.length === 0) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    // Parse times
+    const [openHour, openMin] = openingTime.split(':').map(Number);
+    const [closeHour, closeMin] = closingTime.split(':').map(Number);
+
+    // Generate all dates to create slots for
+    const baseDate = new Date(startDate);
+    baseDate.setHours(0, 0, 0, 0);
+    
+    const datesForSlots = [];
+    const endDate = new Date(baseDate);
+    
+    if (durationType === 'specific') {
+      // Just one date
+      datesForSlots.push(new Date(baseDate));
+    } else if (durationType === 'weekly') {
+      // Repeat for N days, only on selected days of week
+      endDate.setDate(baseDate.getDate() + duration);
+      
+      for (let d = new Date(baseDate); d < endDate; d.setDate(d.getDate() + 1)) {
+        if (daysOfWeek.includes(d.getDay())) {
+          datesForSlots.push(new Date(d));
+        }
+      }
+    }
+
+    // For each date, create hourly slots
+    let slotsCreated = 0;
+    for (const date of datesForSlots) {
+      const currentTime = new Date(date);
+      currentTime.setHours(openHour, openMin, 0, 0);
+
+      const closeDateTime = new Date(date);
+      closeDateTime.setHours(closeHour, closeMin, 0, 0);
+
+      while (currentTime < closeDateTime) {
+        const startTime = new Date(currentTime);
+        const endTime = new Date(currentTime);
+        endTime.setHours(endTime.getHours() + 1);
+
+        // Check if slot already exists
+        const [existing] = await db.execute(
+          'SELECT id FROM field_slot WHERE field_id = ? AND court_id = ? AND start_time = ? AND end_time = ?',
+          [fieldId, courtId, startTime, endTime]
+        );
+
+        if (existing.length === 0) {
+          await db.execute(
+            'INSERT INTO field_slot (field_id, court_id, start_time, end_time, price, is_booked) VALUES (?, ?, ?, ?, ?, 0)',
+            [fieldId, courtId, startTime, endTime, price]
+          );
+          slotsCreated++;
+        }
+
+        currentTime.setHours(currentTime.getHours() + 1);
+      }
+    }
+
+    res.json({ message: 'Slots generated', count: slotsCreated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to generate slots' });
+  }
+});
+
+// Create or update a schedule override for a specific date
+app.post('/api/field/:fieldId/slots/override', async (req, res) => {
+  const { fieldId } = req.params;
+  const { adminId, courtId, overrideDate, openingTime, closingTime, price } = req.body;
+
+  if (!courtId || !overrideDate || !openingTime || !closingTime || !price) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    // Verify field belongs to admin
+    const [field] = await db.execute('SELECT id FROM field WHERE id = ? AND admin_id = ?', [fieldId, adminId]);
+    if (field.length === 0) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    // Parse override times
+    const [openHour, openMin] = openingTime.split(':').map(Number);
+    const [closeHour, closeMin] = closingTime.split(':').map(Number);
+
+    const date = new Date(overrideDate);
+    date.setHours(0, 0, 0, 0);
+
+    // Delete existing slots for this court on this date
+    await db.execute(
+      `DELETE FROM field_slot 
+       WHERE field_id = ? AND court_id = ? 
+       AND DATE(start_time) = DATE(?)`,
+      [fieldId, courtId, date]
+    );
+
+    // Create new slots with override schedule
+    const currentTime = new Date(date);
+    currentTime.setHours(openHour, openMin, 0, 0);
+
+    const closeDateTime = new Date(date);
+    closeDateTime.setHours(closeHour, closeMin, 0, 0);
+
+    let slotsCreated = 0;
+    while (currentTime < closeDateTime) {
+      const startTime = new Date(currentTime);
+      const endTime = new Date(currentTime);
+      endTime.setHours(endTime.getHours() + 1);
+
+      await db.execute(
+        'INSERT INTO field_slot (field_id, court_id, start_time, end_time, price, is_booked) VALUES (?, ?, ?, ?, ?, 0)',
+        [fieldId, courtId, startTime, endTime, price]
+      );
+      slotsCreated++;
+
+      currentTime.setHours(currentTime.getHours() + 1);
+    }
+
+    res.json({ message: 'Schedule override applied', count: slotsCreated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to apply override' });
   }
 });
 

@@ -11,10 +11,11 @@ const BookingDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [field, setField] = useState(null);
+  const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
-  const [selectedSlots, setSelectedSlots] = useState([]);
+  const [selectedSlotIds, setSelectedSlotIds] = useState([]);
 
   useEffect(() => {
     const today = new Date();
@@ -24,12 +25,18 @@ const BookingDetailPage = () => {
 
   const fetchFieldDetails = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/field/${id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setField(data);
-      } else {
+      const fieldResponse = await fetch(`http://localhost:5000/api/field/${id}`);
+      if (!fieldResponse.ok) {
         navigate('/venue');
+        return;
+      }
+      const fieldData = await fieldResponse.json();
+      setField(fieldData);
+
+      const slotsResponse = await fetch(`http://localhost:5000/api/field/${id}/slots`);
+      if (slotsResponse.ok) {
+        const slotsData = await slotsResponse.json();
+        setSlots(slotsData);
       }
     } catch (err) {
       console.error('Failed to fetch field:', err);
@@ -39,8 +46,8 @@ const BookingDetailPage = () => {
     }
   };
 
-  const handleRemoveSlot = (slotKey) => {
-    setSelectedSlots(prev => prev.filter(key => key !== slotKey));
+  const handleRemoveSlot = (slotId) => {
+    setSelectedSlotIds(prev => prev.filter(id => id !== slotId));
   };
 
   if (loading) {
@@ -57,63 +64,20 @@ const BookingDetailPage = () => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
   };
 
-  const openTime = "08:00";
-  const closeTime = "22:00";
-  const slotDuration = 60;
-  const pricePerHour = 100000;
+  // Filter slots by selected date (both booked and available)
+  const selectedDateSlots = slots.filter(slot => {
+    const slotDate = new Date(slot.start_time).toISOString().split('T')[0];
+    return slotDate === selectedDate;
+  });
 
-  const courts = ["Court A", "Court B", "Court C"];
-
-  const generateTimeSlots = (open, close, duration) => {
-    const slots = [];
-    const [openHour, openMin] = open.split(":").map(Number);
-    const [closeHour, closeMin] = close.split(":").map(Number);
-
-    let current = new Date();
-    current.setHours(openHour, openMin, 0);
-
-    const end = new Date();
-    end.setHours(closeHour, closeMin, 0);
-
-    while (current < end) {
-      const next = new Date(current);
-      next.setMinutes(current.getMinutes() + duration);
-
-      const format = (d) => d.toTimeString().slice(0, 5);
-      slots.push(`${format(current)} - ${format(next)}`);
-
-      current = next;
-    }
-
-    return slots;
-  };
-
-  const timeSlots = generateTimeSlots(openTime, closeTime, slotDuration);
-
-  const isWeekend = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.getDay() === 0 || d.getDay() === 6;
-  };
-
-  const displayPrice = isWeekend(selectedDate) ? pricePerHour * 1.2 : pricePerHour;
-  const pricePerSlot = displayPrice * (slotDuration / 60);
-
-  const toggleSlot = (court, time) => {
-    const key = `${court}-${time}`;
-    setSelectedSlots(prev =>
-      prev.includes(key)
-        ? prev.filter(i => i !== key)
-        : [...prev, key]
-    );
-  };
-
-  const totalPrice = selectedSlots.length * pricePerSlot;
+  // Get selected slot objects for calculation
+  const selectedSlotObjects = selectedDateSlots.filter(slot => selectedSlotIds.includes(slot.id));
+  const totalPrice = selectedSlotObjects.reduce((sum, slot) => sum + parseFloat(slot.price), 0);
 
   const contactWhatsApp = () => {
     const msg = `Halo Admin,
 Venue: ${field.name}
 Tanggal: ${selectedDate}
-Slot: ${selectedSlots.join(', ')}
 Total: Rp ${totalPrice.toLocaleString()}`;
 
     window.open(`https://wa.me/6289794383499?text=${encodeURIComponent(msg)}`);
@@ -121,7 +85,6 @@ Total: Rp ${totalPrice.toLocaleString()}`;
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 mb-20">
-
       <button
         onClick={() => navigate(-1)}
         className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-6 uppercase hover:text-black"
@@ -130,13 +93,11 @@ Total: Rp ${totalPrice.toLocaleString()}`;
       </button>
 
       <div className="grid lg:grid-cols-3 gap-10">
-
-        {/* LEFT */}
+        {/* LEFT SECTION */}
         <div className="lg:col-span-2 space-y-6">
-
           <div className="rounded-3xl overflow-hidden aspect-video shadow-xl bg-gray-200">
             {field.image_url ? (
-              <img src={field.image_url} className="w-full h-full object-cover" />
+              <img src={field.image_url} className="w-full h-full object-cover" alt={field.name} />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400">
                 <span className="text-gray-600">No image</span>
@@ -173,93 +134,149 @@ Total: Rp ${totalPrice.toLocaleString()}`;
               value={selectedDate}
               onChange={(e) => {
                 setSelectedDate(e.target.value);
-                setSelectedSlots([]);
+                setSelectedSlotIds([]);
               }}
               className="border rounded-xl px-4 py-2 w-full"
             />
           </div>
 
-          {/* SLOT GRID */}
+          {/* SLOT TABLE */}
           <div>
-            <p className="text-xs font-bold mb-3">Select Time & Court</p>
+            <p className="text-xs font-bold mb-3">Available Time Slots</p>
 
-            <div
-              className="grid gap-2"
-              style={{
-                gridTemplateColumns: `80px repeat(${courts.length}, 1fr)`
-              }}
-            >
-
-              {/* EMPTY TOP LEFT */}
-              <div></div>
-
-              {/* HEADER */}
-              {courts.map(court => (
-                <div
-                  key={court}
-                  className="h-10 flex items-center justify-center font-bold text-[10px] sm:text-xs"
-                >
-                  {court}
-                </div>
-              ))}
-
-              {/* ROWS */}
-              {timeSlots.map(time => (
-                <React.Fragment key={time}>
-
-                  {/* TIME */}
-                  <div className="h-12 sm:h-14 flex items-center text-[9px] sm:text-[11px] font-semibold leading-none">
-                    {time}
+            {selectedDateSlots.filter(s => s.is_booked === 0).length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <p className="text-sm">No available slots for {selectedDate}</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                  {/* Header */}
+                  <div
+                    className="grid gap-0 border-b border-gray-200"
+                    style={{
+                      gridTemplateColumns: `120px repeat(${[...new Set(selectedDateSlots.map(s => s.court_name || 'Court ' + (s.court_id || '1')))].length || 1}, 1fr)`
+                    }}
+                  >
+                    <div className="px-4 py-3 text-xs font-bold text-gray-700 bg-primary/5 border-r border-gray-200">
+                      Time
+                    </div>
+                    {[...new Set(selectedDateSlots.map(s => s.court_name || 'Court ' + (s.court_id || '1')))].sort().map(courtName => (
+                      <div
+                        key={courtName}
+                        className="px-4 py-3 text-xs font-bold text-gray-700 bg-gray-50 border-r border-gray-200 text-center"
+                      >
+                        {courtName}
+                      </div>
+                    ))}
                   </div>
 
-                  {/* BUTTONS */}
-                  {courts.map(court => {
-                    const key = `${court}-${time}`;
-                    const isSelected = selectedSlots.includes(key);
-
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => toggleSlot(court, time)}
-                        className={`h-12 sm:h-14 rounded-xl border flex items-center justify-center transition ${
-                          isSelected
-                            ? "bg-primary text-white border-primary"
-                            : "bg-white text-gray-400 border-gray-200 hover:border-primary"
-                        }`}
+                  {/* Slots Grid */}
+                  <div className="divide-y divide-gray-200">
+                    {[...new Set(selectedDateSlots.map(s => {
+                      const startTime = new Date(s.start_time).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                      });
+                      return startTime;
+                    }))].sort().map(time => (
+                      <div
+                        key={time}
+                        className="grid gap-0 border-b border-gray-200"
+                        style={{
+                          gridTemplateColumns: `120px repeat(${[...new Set(selectedDateSlots.map(s => s.court_name || 'Court ' + (s.court_id || '1')))].length || 1}, 1fr)`
+                        }}
                       >
-                        {isSelected ? "✓" : (
-                          <span className="text-[9px] sm:text-[11px]">
-                            Rp {pricePerSlot.toLocaleString()}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                        {/* Time Cell */}
+                        <div className="px-4 py-3 text-xs font-bold text-gray-900 bg-gray-50 border-r border-gray-200">
+                          {time}-{String(parseInt(time.split(':')[0]) + 1).padStart(2, '0')}:00
+                        </div>
 
-                </React.Fragment>
-              ))}
+                        {/* Slot Cells */}
+                        {[...new Set(selectedDateSlots.map(s => s.court_name || 'Court ' + (s.court_id || '1')))].sort().map(courtName => {
+                          const slot = selectedDateSlots.find(s => {
+                            const slotTime = new Date(s.start_time).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: false
+                            });
+                            return slotTime === time && (s.court_name || 'Court ' + (s.court_id || '1')) === courtName;
+                          });
 
-            </div>
+                          if (!slot) {
+                            return (
+                              <div key={courtName} className="px-3 py-3 border-r border-gray-200 bg-gray-50" />
+                            );
+                          }
+
+                          const isSelected = selectedSlotIds.includes(slot.id);
+                          const isBooked = slot.is_booked === 1;
+
+                          return (
+                            <button
+                              key={slot.id}
+                              onClick={() => {
+                                if (!isBooked) {
+                                  setSelectedSlotIds(prev =>
+                                    prev.includes(slot.id)
+                                      ? prev.filter(id => id !== slot.id)
+                                      : [...prev, slot.id]
+                                  );
+                                }
+                              }}
+                              disabled={isBooked}
+                              className={`px-3 py-4 border-r border-gray-200 text-center transition rounded-lg ${
+                                isBooked
+                                  ? 'bg-gray-100 cursor-not-allowed opacity-50'
+                                  : isSelected
+                                  ? 'bg-primary/20 border-2 border-primary'
+                                  : 'bg-white hover:bg-primary/5'
+                              }`}
+                            >
+                              <p className="text-xs font-bold text-primary">Rp {parseInt(slot.price).toLocaleString()}</p>
+                              <p
+                                className={`text-xs mt-1 font-semibold ${
+                                  isBooked ? 'text-gray-500' : isSelected ? 'text-primary' : 'text-green-700'
+                                }`}
+                              >
+                                {isBooked ? 'Unavailable' : 'Available'}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+
+                  {selectedDateSlots.filter(s => s.is_booked === 0).length === 0 && (
+                    <div className="p-8 text-center text-gray-500 text-sm">
+                      No available slots for {selectedDate}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* RIGHT */}
+        {/* RIGHT SECTION */}
         <div>
           <div className="sticky top-8 bg-white p-6 rounded-3xl shadow-xl space-y-6">
-
             <div>
-              <p className="text-sm text-gray-400">
-                Price ({isWeekend(selectedDate) ? "Weekend" : "Weekday"})
-              </p>
+              <p className="text-sm text-gray-400">Price per slot</p>
               <p className="text-xl font-black">
-                Rp {displayPrice.toLocaleString()} / hour
+                {selectedSlotObjects.length > 0 
+                  ? `Rp ${Math.round(selectedSlotObjects[0].price).toLocaleString()}`
+                  : 'Select slots'
+                }
               </p>
             </div>
 
             <div>
               <p className="text-sm text-gray-400">Selected</p>
               <p className="text-sm font-bold">
-                {selectedSlots.length} slot(s)
+                {selectedSlotIds.length} slot(s)
               </p>
             </div>
 
@@ -272,33 +289,32 @@ Total: Rp ${totalPrice.toLocaleString()}`;
           
             <button
               onClick={() => setIsModalOpen(true)}
-              disabled={!selectedDate || selectedSlots.length === 0}
-              className="w-full py-4 bg-primary text-white rounded-xl font-bold disabled:opacity-30"
+              disabled={selectedDateSlots.length === 0 || selectedSlotIds.length === 0}
+              className="w-full py-4 bg-primary text-white rounded-2xl font-bold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 transition"
             >
               Book • Rp {totalPrice.toLocaleString()}
             </button>
 
             <button
               onClick={contactWhatsApp}
-              className="w-full py-3 bg-green-500 text-white rounded-xl flex items-center justify-center gap-2"
+              className="w-full py-3 bg-green-500 text-white rounded-2xl flex items-center justify-center gap-2 font-semibold hover:bg-green-600 transition"
             >
               <FaWhatsapp /> Ask via WhatsApp
             </button>
-
           </div>
         </div>
-
       </div>
+
       <BookingSummaryModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         field={field}
         selectedDate={selectedDate}
-        selectedSlots={selectedSlots}
-        pricePerSlot={pricePerSlot}
+        selectedSlotIds={selectedSlotIds}
+        selectedSlots={selectedSlotObjects}
+        totalPrice={totalPrice}
         onRemove={handleRemoveSlot}
         onContinue={() => {
-          alert("Proceeding to payment...");
           setIsModalOpen(false);
         }}
       />
@@ -307,5 +323,3 @@ Total: Rp ${totalPrice.toLocaleString()}`;
 };
 
 export default BookingDetailPage;
-
- 
