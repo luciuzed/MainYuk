@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { useForm } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import LoadingOverlay from '../components/LoadingOverlay'
+import LoadingOverlay from '../components/LoadingOverlay'
 import IMAGE_RING from '../assets/ring.jpg'
 import IMAGE_PADEL from '../assets/padel.jpg'
 import IMAGE_BILIARD from '../assets/biliard.jpg'
 import IMAGE_TENNIS from '../assets/tennis.jpg'
 
+import Cookies from 'js-cookie';
 import Cookies from 'js-cookie';
 import { FaUser, FaLock, FaPhoneAlt, FaEye, FaEyeSlash } from "react-icons/fa";
 
@@ -47,11 +49,15 @@ const LoginPage = () => {
   const [otpCode, setOtpCode] = useState(['', '', '', ''])
   const [otpRemaining, setOtpRemaining] = useState(60)
   const [isLoading, setIsLoading] = useState(false)
+  const [otpRemaining, setOtpRemaining] = useState(60)
+  const [isLoading, setIsLoading] = useState(false)
   const [pendingRegisterData, setPendingRegisterData] = useState(null)
   const [pendingLoginRoute, setPendingLoginRoute] = useState(null)
   const [pendingOtpInfo, setPendingOtpInfo] = useState(null)
+  const [pendingOtpInfo, setPendingOtpInfo] = useState(null)
   const otpRefs = useRef([])
   const [showPassword, setShowPassword] = useState(false)
+  const prevShowOtp = useRef(showOtpUI)
   const prevShowOtp = useRef(showOtpUI)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [activeSlide, setActiveSlide] = useState(0)
@@ -95,6 +101,34 @@ const LoginPage = () => {
     return () => clearInterval(interval)
   }, [showOtpUI])
 
+  useEffect(() => {
+    if (prevShowOtp.current && !showOtpUI) {
+      setError('')
+    }
+    prevShowOtp.current = showOtpUI
+  }, [showOtpUI])
+
+  useEffect(() => {
+    if (!showOtpUI) return
+    setOtpRemaining(60)
+
+    if (otpRefs.current[0]) {
+      otpRefs.current[0].focus()
+    }
+
+    const interval = setInterval(() => {
+      setOtpRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [showOtpUI])
+
   const {
     register,
     handleSubmit,
@@ -106,6 +140,7 @@ const LoginPage = () => {
 
   const handleLogin = async (formData) => {
     setError('');
+    setIsLoading(true)
     setIsLoading(true)
     const url = role === "User" ? "login" : "login-business";
 
@@ -119,11 +154,18 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok && data.otpNeeded) {
+      if (response.ok && data.otpNeeded) {
         const targetRoute = role === "User" ? "/venue" : "/dashboard"
+        setPendingOtpInfo({ email: formData.email, role, redirect: targetRoute })
         setPendingOtpInfo({ email: formData.email, role, redirect: targetRoute })
         setPendingLoginRoute(targetRoute)
         setShowOtpUI(true)
         setError('')
+        return
+      } else if (response.ok) {
+        Cookies.set('user_session', JSON.stringify(data.user), { expires: 7 });
+        const targetRoute = role === "User" ? "/venue" : "/dashboard"
+        navigate(targetRoute)
         return
       } else if (response.ok) {
         Cookies.set('user_session', JSON.stringify(data.user), { expires: 7 });
@@ -135,6 +177,8 @@ const LoginPage = () => {
       }
     } catch (err) {
       setError('Cannot connect to server');
+    } finally {
+      setIsLoading(false)
     } finally {
       setIsLoading(false)
     }
@@ -178,12 +222,20 @@ const LoginPage = () => {
         Cookies.set('user_session', JSON.stringify(data.user), { expires: 7 });
         const targetRoute = role === "User" ? "/home" : "/dashboard"
         navigate(targetRoute)
+        setError('')
+        return
+      } else if (response.ok) {
+        Cookies.set('user_session', JSON.stringify(data.user), { expires: 7 });
+        const targetRoute = role === "User" ? "/home" : "/dashboard"
+        navigate(targetRoute)
         return
       } else {
         setError(data.error || 'Registration failed');
       }
     } catch (err) {
       setError('Cannot connect to server');
+    } finally {
+      setIsLoading(false)
     } finally {
       setIsLoading(false)
     }
@@ -201,6 +253,7 @@ const LoginPage = () => {
         return
       }
       
+      await handleRegister(data)
       await handleRegister(data)
       return
     }
@@ -231,6 +284,41 @@ const LoginPage = () => {
 
   const handleForgotPassword = () => {
     alert("Forgot password functionality - implement your logic here");
+  }
+
+  const handleOtpBackToAuth = () => {
+    setShowOtpUI(false)
+    setError('')
+    setPendingOtpInfo(null)
+    setOtpRemaining(60)
+  }
+
+  const handleResendOtp = async () => {
+    if (!pendingOtpInfo) {
+      setError('No pending OTP information for resend')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch('http://localhost:5000/api/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingOtpInfo.email, role: pendingOtpInfo.role }),
+      })
+
+      const data = await response.json()
+      if (response.ok) {
+        setError('OTP resent successfully')
+        setOtpRemaining(60)
+      } else {
+        setError(data.error || 'Failed to resend OTP')
+      }
+    } catch (err) {
+      setError('Cannot connect to server')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleOtpBackToAuth = () => {
@@ -302,6 +390,13 @@ const LoginPage = () => {
         }, 100)
       }
 
+
+      if (index === 3 && next.join('').length === 4) {
+        setTimeout(() => {
+          submitOtpVerification(next.join(''))
+        }, 100)
+      }
+
       return next
     })
 
@@ -340,7 +435,10 @@ const LoginPage = () => {
 
   const submitOtpVerification = async (pinValue = null) => {
     const pin = pinValue || otpCode.join('')
+  const submitOtpVerification = async (pinValue = null) => {
+    const pin = pinValue || otpCode.join('')
     if (pin.length < 4) {
+      setError('Please enter the full 4-digit OTP')
       setError('Please enter the full 4-digit OTP')
       return
     }
@@ -349,9 +447,13 @@ const LoginPage = () => {
 
     if (otpRemaining <= 0) {
       setError('OTP expired. Please request a new code.')
+    if (otpRemaining <= 0) {
+      setError('OTP expired. Please request a new code.')
       return
     }
 
+    if (!pendingOtpInfo) {
+      setError('No pending OTP request. Please login/register again.')
     if (!pendingOtpInfo) {
       setError('No pending OTP request. Please login/register again.')
       return
@@ -395,6 +497,8 @@ const LoginPage = () => {
   return (
     <div className="w-full min-h-screen-80px flex flex-col lg:flex-row relative">
       <LoadingOverlay show={isLoading} />
+    <div className="w-full min-h-screen-80px flex flex-col lg:flex-row relative">
+      <LoadingOverlay show={isLoading} />
 
       {/* LEFT SIDE */}
       <div className="w-full lg:w-1/2 flex items-center px-6 lg:px-10">
@@ -407,6 +511,7 @@ const LoginPage = () => {
               </p>
             </div>
 
+            <div className="w-full flex justify-center mb-6">
             <div className="w-full flex justify-center mb-6">
               <div className="w-3/4 flex justify-between gap-3">
                 {otpCode.map((digit, index) => (
@@ -434,10 +539,20 @@ const LoginPage = () => {
             </div>
 
             <div className="w-full flex justify-center mt-5">
+            <div className="w-full flex justify-center mt-4">
+              <p className={`text-lg text-center font-bold ${otpRemaining > 0 ? 'text-gray-900' : 'text-red-500'}`}>
+                {otpRemaining > 0
+                  ? `${String(Math.floor(otpRemaining / 60)).padStart(2, '0')} : ${String(otpRemaining % 60).padStart(2, '0')}`
+                  : '00 : 00'}
+              </p>
+            </div>
+
+            <div className="w-full flex justify-center mt-5">
               <button
                 type="button"
                 onClick={handleOtpVerify}
                 className="w-3/4 bg-primary text-white py-3 rounded-full font-semibold hover:opacity-90 transition"
+                disabled={otpRemaining <= 0}
                 disabled={otpRemaining <= 0}
               >
                 Verify OTP
@@ -447,6 +562,7 @@ const LoginPage = () => {
             <div className="w-full flex justify-center mt-6 text-center text-sm text-gray-500">
               <button
                 type="button"
+                onClick={handleOtpBackToAuth}
                 onClick={handleOtpBackToAuth}
                 className="text-primary font-medium hover:underline"
               >
@@ -458,12 +574,19 @@ const LoginPage = () => {
               <button
                 type="button"
                 onClick={handleResendOtp}
+                onClick={handleResendOtp}
                 className="text-gray-500 hover:text-primary hover:underline"
+                disabled={isLoading}
                 disabled={isLoading}
               >
                 Resend OTP
               </button>
             </div>
+
+            {error && (
+              <p className="text-red-500 text-center mt-4">{error}</p>
+            )}
+
 
             {error && (
               <p className="text-red-500 text-center mt-4">{error}</p>
@@ -541,14 +664,14 @@ const LoginPage = () => {
 
                   <button
                     type="button"
-                    onClick={() => setRole("Admin")}
+                    onClick={() => setRole("Business")}
                     className={`px-6 py-2 rounded-full border ${
-                      role === "Admin"
+                      role === "Business"
                         ? "bg-primary text-white border-primary"
                         : "border-gray-300 text-gray-500"
                     }`}
                   >
-                    Admin
+                    Business
                   </button>
 
                 </div>
