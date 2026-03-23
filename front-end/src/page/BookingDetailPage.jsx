@@ -25,7 +25,7 @@ const BookingDetailPage = () => {
 
   const fetchFieldDetails = async () => {
     try {
-      const fieldResponse = await fetch(`http://localhost:5000/api/field/${id}`);
+      const fieldResponse = await fetch(`http://localhost:5000/api/field/detail/${id}`);
       if (!fieldResponse.ok) {
         navigate('/venue');
         return;
@@ -33,10 +33,9 @@ const BookingDetailPage = () => {
       const fieldData = await fieldResponse.json();
       setField(fieldData);
 
-      const slotsResponse = await fetch(`http://localhost:5000/api/field/${id}/slots`);
-      if (slotsResponse.ok) {
-        const slotsData = await slotsResponse.json();
-        setSlots(slotsData);
+      // Slots are already included in the response from /detail endpoint
+      if (fieldData.slots) {
+        setSlots(fieldData.slots);
       }
     } catch (err) {
       console.error('Failed to fetch field:', err);
@@ -155,13 +154,13 @@ Total: Rp ${totalPrice.toLocaleString()}`;
                   <div
                     className="grid gap-0 border-b border-gray-200"
                     style={{
-                      gridTemplateColumns: `120px repeat(${[...new Set(selectedDateSlots.map(s => s.court_name || 'Court ' + (s.court_id || '1')))].length || 1}, 1fr)`
+                      gridTemplateColumns: `120px repeat(${[...new Set(selectedDateSlots.map(s => s.court_name || 'Court ' + (s.court_name || '1')))].length || 1}, 1fr)`
                     }}
                   >
                     <div className="px-4 py-3 text-xs font-bold text-gray-700 bg-primary/5 border-r border-gray-200">
                       Time
                     </div>
-                    {[...new Set(selectedDateSlots.map(s => s.court_name || 'Court ' + (s.court_id || '1')))].sort().map(courtName => (
+                    {[...new Set(selectedDateSlots.map(s => s.court_name || 'Court ' + (s.court_name || '1')))].sort().map(courtName => (
                       <div
                         key={courtName}
                         className="px-4 py-3 text-xs font-bold text-gray-700 bg-gray-50 border-r border-gray-200 text-center"
@@ -185,7 +184,7 @@ Total: Rp ${totalPrice.toLocaleString()}`;
                         key={time}
                         className="grid gap-0 border-b border-gray-200"
                         style={{
-                          gridTemplateColumns: `120px repeat(${[...new Set(selectedDateSlots.map(s => s.court_name || 'Court ' + (s.court_id || '1')))].length || 1}, 1fr)`
+                          gridTemplateColumns: `120px repeat(${[...new Set(selectedDateSlots.map(s => s.court_name || 'Court ' + (s.court_name || '1')))].length || 1}, 1fr)`
                         }}
                       >
                         {/* Time Cell */}
