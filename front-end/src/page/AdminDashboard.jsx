@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { FiBarChart2, FiBriefcase, FiGrid, FiLogOut, FiPlus, FiEdit2, FiTrash2, FiX, FiCheck, FiTrendingUp, FiAward, FiUsers, FiUser, FiCalendar } from 'react-icons/fi'
 import Cookies from 'js-cookie'
-import LOGO from '../assets/logo.svg'
+import LOGO from '../assets/header.svg'
 
 const AdminDashboard = () => {
   const navigate = useNavigate()
@@ -447,7 +447,7 @@ const AdminDashboard = () => {
         {/* SIDEBAR */}
         <aside className="w-64 min-h-screen bg-primary text-white flex flex-col">
           <div className="px-6 pt-8 pb-6">
-            <img src={LOGO} alt="MainYuk" className="h-10 w-10" />
+            <img src={LOGO} alt="MainYuk" className="h-10 w-30" />
           </div>
 
           <nav className="px-3 pb-8 space-y-1">
@@ -455,7 +455,7 @@ const AdminDashboard = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
+                className={`flex w-full items-center gap-3 rounded-lg px-4 py-4 text-left text-sm font-bold transition ${
                   activeTab === tab.id
                     ? 'bg-white/20 text-white'
                     : 'text-white/90 hover:bg-white/15'
@@ -656,48 +656,36 @@ const AdminDashboard = () => {
                       key={field.id}
                       className={`bg-white rounded-2xl shadow-sm border transition ${field.is_active === 0 ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-100'} hover:shadow-md overflow-hidden`}
                     >
-                      <div className="flex items-start justify-between">
-                        {/* Field Image */}
-                        <div className="h-40 w-40 flex-shrink-0 bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden">
+                      <div className="flex items-start justify-between p-4">
+                        <div className="h-32 w-32 flex-shrink-0 bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden rounded-xl ml-2"> 
+
                           {field.image_url ? (
                             <img src={field.image_url} alt={field.name} className="h-full w-full object-cover" />
                           ) : (
                             <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                              <FiBriefcase className="h-16 w-16 text-gray-300" />
+                              <FiBriefcase className="h-12 w-12 text-gray-300" />
                             </div>
                           )}
                         </div>
                         
-                        {/* Field Details */}
-                        <div className="flex-1 p-6">
-                          <div className="flex items-center gap-3 mb-4">
+                        <div className="flex-1 px-8"> 
+                          <div className="flex items-center gap-3 mb-2">
                             <h3 className="text-lg font-bold">{field.name}</h3>
                             <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${field.is_active === 1 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                               {field.is_active === 1 ? '✓ Open' : '⊘ Closed'}
                             </span>
                           </div>
-                          <div className="space-y-2 text-sm text-gray-600">
+                          <div className="space-y-1 text-sm text-gray-600">
                             <p>
-                              <span className="font-semibold text-gray-900">Category:</span> <span className="inline-block bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium">{field.category}</span>
+                              <span className="font-semibold text-gray-900">Category:</span> <span className="inline-block bg-gray-100 text-gray-700 px-3 py-0.5 rounded-full text-xs font-medium ml-1">{field.category}</span>
                             </p>
-                            <p>
-                              <span className="font-semibold text-gray-900">Address:</span> {field.address}
-                            </p>
-                            {field.city && (
-                              <p>
-                                <span className="font-semibold text-gray-900">City:</span> {field.city}
-                              </p>
-                            )}
-                            {field.description && (
-                              <p>
-                                <span className="font-semibold text-gray-900">Description:</span> {field.description}
-                              </p>
-                            )}
+                            <p><span className="font-semibold text-gray-900">Address:</span> {field.address}</p>
+                            {field.city && <p><span className="font-semibold text-gray-900">City:</span> {field.city}</p>}
+                            {field.description && <p><span className="font-semibold text-gray-900">Description:</span> {field.description}</p>}
                           </div>
                         </div>
                         
-                        {/* Action Buttons */}
-                        <div className="flex gap-2 pr-6 flex-shrink-0 self-start pt-6">
+                        <div className="flex gap-2 pr-4 flex-shrink-0">
                           <button
                             onClick={() => openSlotsModal(field)}
                             className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-lg transition font-medium"
