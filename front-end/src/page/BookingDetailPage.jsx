@@ -12,6 +12,7 @@ const BookingDetailPage = () => {
   const navigate = useNavigate();
   const [field, setField] = useState(null);
   const [slots, setSlots] = useState([]);
+  const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
@@ -21,6 +22,7 @@ const BookingDetailPage = () => {
     const today = new Date();
     setSelectedDate(today.toISOString().split('T')[0]);
     fetchFieldDetails();
+    fetchCourts();
   }, [id]);
 
   const fetchFieldDetails = async () => {
@@ -40,13 +42,21 @@ const BookingDetailPage = () => {
     } catch (err) {
       console.error('Failed to fetch field:', err);
       navigate('/venue');
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleRemoveSlot = (slotId) => {
-    setSelectedSlotIds(prev => prev.filter(id => id !== slotId));
+  const fetchCourts = async () => {
+    try {
+      const courtsResponse = await fetch(`http://localhost:5000/api/courts/${id}`);
+      if (courtsResponse.ok) {
+        const courtsData = await courtsResponse.json();
+        setCourts(courtsData);
+      }
+    } catch (err) {
+      console.error('Failed to fetch courts:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
@@ -72,6 +82,64 @@ const BookingDetailPage = () => {
   // Get selected slot objects for calculation
   const selectedSlotObjects = selectedDateSlots.filter(slot => selectedSlotIds.includes(slot.id));
   const totalPrice = selectedSlotObjects.reduce((sum, slot) => sum + parseFloat(slot.price), 0);
+
+  const handleRemoveSlot = (slotId) => {
+    setSelectedSlotIds(prev => prev.filter(id => id !== slotId));
+  };
+
+  // Extract unique time slots from the slots data
+  const timeSlots = Array.from(
+    new Set(
+      selectedDateSlots.map(slot => {
+        const date = new Date(slot.start_time);
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+      })
+    )
+  ).sort();
+
+  // Get price for a specific court
+  const getCourtPrice = (courtId) => {
+    const courtSlot = selectedDateSlots.find(slot => slot.court_id === courtId);
+    return courtSlot ? courtSlot.price : 0;
+  };
+
+  // Toggle slot selection
+  const toggleSlot = (courtId, time) => {
+    // Find the slot matching this court and time
+    const slot = selectedDateSlots.find(s => {
+      const slotDate = new Date(s.start_time);
+      const slotHours = String(slotDate.getHours()).padStart(2, '0');
+      const slotMinutes = String(slotDate.getMinutes()).padStart(2, '0');
+      const slotTime = `${slotHours}:${slotMinutes}`;
+      
+      // Match by time and court_id
+      return slotTime === time && s.court_id === courtId;
+    });
+
+    if (slot) {
+      if (selectedSlotIds.includes(slot.id)) {
+        setSelectedSlotIds(prev => prev.filter(id => id !== slot.id));
+      } else {
+        setSelectedSlotIds(prev => [...prev, slot.id]);
+      }
+    }
+  };
+
+  // Helper function to check if a slot is selected for given court and time
+  const isSlotSelected = (courtId, time) => {
+    return selectedDateSlots.some(slot => {
+      if (!selectedSlotIds.includes(slot.id)) return false;
+      
+      const slotDate = new Date(slot.start_time);
+      const slotHours = String(slotDate.getHours()).padStart(2, '0');
+      const slotMinutes = String(slotDate.getMinutes()).padStart(2, '0');
+      const slotTime = `${slotHours}:${slotMinutes}`;
+      
+      return slotTime === time && slot.court_id === courtId;
+    });
+  };
 
   const contactWhatsApp = () => {
     const msg = `Halo Admin,
@@ -140,17 +208,68 @@ Total: Rp ${totalPrice.toLocaleString()}`;
           </div>
 
           {/* SLOT TABLE */}
+          {/* SLOT GRID */}
           <div>
-            <p className="text-xs font-bold mb-3">Available Time Slots</p>
+            <p className="text-xs font-bold mb-3">Select Time & Court</p>
 
-            {selectedDateSlots.filter(s => s.is_booked === 0).length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <p className="text-sm">No available slots for {selectedDate}</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-              </div>
-            )}
+            {/* GRID FIXED SYSTEM */}
+            <div
+              className="grid gap-2"
+              style={{
+                gridTemplateColumns: `80px repeat(${courts.length}, 1fr)`
+              }}
+            >
+
+              {/* EMPTY TOP LEFT */}
+              <div></div>
+
+              {/* HEADER */}
+              {courts.map(court => (
+                <div
+                  key={court.id}
+                  className="h-10 flex items-center justify-center font-bold text-[10px] sm:text-xs"
+                >
+                  {court.name}
+                </div>
+              ))}
+
+              {/* ROWS */}
+              {timeSlots.map(time => (
+                <React.Fragment key={time}>
+
+                  {/* TIME */}
+                  <div className="h-12 sm:h-14 flex items-center text-[9px] sm:text-[11px] font-semibold leading-none">
+                    {time}
+                  </div>
+
+                  {/* BUTTONS */}
+                  {courts.map(court => {
+                    const key = `${court.id}-${time}`;
+                    const isSelected = isSlotSelected(court.id, time);
+
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => toggleSlot(court.id, time)}
+                        className={`h-12 sm:h-14 rounded-xl border flex items-center justify-center transition cursor-pointer ${
+                          isSelected
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-gray-400 border-gray-200 hover:border-primary"
+                        }`}
+                      >
+                        {isSelected ? "✓" : (
+                          <span className="text-[9px] sm:text-[11px]">
+                            Rp {getCourtPrice(court.id).toLocaleString()}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+
+                </React.Fragment>
+              ))}
+
+            </div>
           </div>
         </div>
 
