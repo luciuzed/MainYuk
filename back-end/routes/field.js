@@ -22,7 +22,7 @@ router.get('/:adminId', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const [fields] = await db.execute(
-      'SELECT id, admin_id, name, category, description, address, city, image_url, is_active, rating FROM field ORDER BY is_active DESC, created_at DESC'
+      'SELECT f.id, f.admin_id, f.name, f.category, f.description, f.address, f.city, f.image_url, f.is_active, f.rating, MIN(fs.price) as min_price, MAX(fs.price) as max_price FROM field f LEFT JOIN field_slot fs ON f.id = fs.field_id GROUP BY f.id ORDER BY f.is_active DESC, f.created_at DESC'
     );
     res.json(fields);
   } catch (err) {

@@ -127,7 +127,9 @@ const BookingPage = () => {
                 </div>
                 <p className="text-gray-400 text-[10px] flex items-center gap-1 mt-0.5"><FaMapMarkerAlt className="text-primary/60 scale-75" /> {item.city || 'Location'}</p>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-[13px] font-black text-gray-900">Rp 100k</span>
+                  <span className="text-[13px] font-black text-gray-900">
+                    Rp {item.min_price ? (item.min_price / 1000).toFixed(0) : 'N/A'}k{item.max_price && item.max_price !== item.min_price ? ` - Rp ${(item.max_price / 1000).toFixed(0)}k` : ''}
+                  </span>
                   <span className="text-[9px] text-gray-400 font-medium">/ hr</span>
                 </div>
               </div>

@@ -182,7 +182,7 @@ Total: Rp ${totalPrice.toLocaleString()}`;
             </button>
           </div>
 
-          <div className="bg-gray-50 p-6 rounded-2xl">
+          <div className="bg-gray-200 p-6 rounded-2xl">
             <p className="text-sm text-gray-500">
               {field.description || "No description available."}
             </p>
@@ -203,7 +203,7 @@ Total: Rp ${totalPrice.toLocaleString()}`;
                 setSelectedDate(e.target.value);
                 setSelectedSlotIds([]);
               }}
-              className="border rounded-xl px-4 py-2 w-full"
+              className="border border-gray-300 rounded-xl px-4 py-2 w-full"
             />
           </div>
 
@@ -212,70 +212,77 @@ Total: Rp ${totalPrice.toLocaleString()}`;
           <div>
             <p className="text-xs font-bold mb-3">Select Time & Court</p>
 
-            {/* GRID FIXED SYSTEM */}
-            <div
-              className="grid gap-2"
-              style={{
-                gridTemplateColumns: `80px repeat(${courts.length}, 1fr)`
-              }}
-            >
+            {/* CHECK IF THERE ARE NO COURTS OR NO TIME SLOTS */}
+            {courts.length === 0 || timeSlots.length === 0 ? (
+              <div className="text-center py-12 bg-gray-100 rounded-2xl">
+                <p className="text-gray-500 font-semibold">Schedule empty</p>
+              </div>
+            ) : (
+              /* GRID FIXED SYSTEM */
+              <div
+                className="grid gap-2"
+                style={{
+                  gridTemplateColumns: `80px repeat(${courts.length}, 1fr)`
+                }}
+              >
 
-              {/* EMPTY TOP LEFT */}
-              <div></div>
+                {/* EMPTY TOP LEFT */}
+                <div></div>
 
-              {/* HEADER */}
-              {courts.map(court => (
-                <div
-                  key={court.id}
-                  className="h-10 flex items-center justify-center font-bold text-[10px] sm:text-xs"
-                >
-                  {court.name}
-                </div>
-              ))}
-
-              {/* ROWS */}
-              {timeSlots.map(time => (
-                <React.Fragment key={time}>
-
-                  {/* TIME */}
-                  <div className="h-12 sm:h-14 flex items-center text-[9px] sm:text-[11px] font-semibold leading-none">
-                    {time}
+                {/* HEADER */}
+                {courts.map(court => (
+                  <div
+                    key={court.id}
+                    className="h-10 flex items-center justify-center font-bold text-[10px] sm:text-xs"
+                  >
+                    {court.name}
                   </div>
+                ))}
 
-                  {/* BUTTONS */}
-                  {courts.map(court => {
-                    const key = `${court.id}-${time}`;
-                    const isSelected = isSlotSelected(court.id, time);
+                {/* ROWS */}
+                {timeSlots.map(time => (
+                  <React.Fragment key={time}>
 
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => toggleSlot(court.id, time)}
-                        className={`h-12 sm:h-14 rounded-xl border flex items-center justify-center transition cursor-pointer ${
-                          isSelected
-                            ? "bg-primary text-white border-primary"
-                            : "bg-white text-gray-400 border-gray-200 hover:border-primary"
-                        }`}
-                      >
-                        {isSelected ? "✓" : (
-                          <span className="text-[9px] sm:text-[11px]">
-                            Rp {getCourtPrice(court.id).toLocaleString()}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                    {/* TIME */}
+                    <div className="h-12 sm:h-14 flex items-center text-[9px] sm:text-[11px] font-semibold leading-none">
+                      {time}
+                    </div>
 
-                </React.Fragment>
-              ))}
+                    {/* BUTTONS */}
+                    {courts.map(court => {
+                      const key = `${court.id}-${time}`;
+                      const isSelected = isSlotSelected(court.id, time);
 
-            </div>
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => toggleSlot(court.id, time)}
+                          className={`h-12 sm:h-14 rounded-xl border flex items-center justify-center transition cursor-pointer ${
+                            isSelected
+                              ? "bg-primary text-white border-primary"
+                              : "bg-white text-gray-400 border-gray-300 hover:border-primary"
+                          }`}
+                        >
+                          {isSelected ? "✓" : (
+                            <span className="text-[9px] sm:text-[11px]">
+                              Rp {getCourtPrice(court.id).toLocaleString()}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+
+                  </React.Fragment>
+                ))}
+
+              </div>
+            )}
           </div>
         </div>
 
         {/* RIGHT SECTION */}
         <div>
-          <div className="sticky top-8 bg-white p-6 rounded-3xl shadow-xl space-y-6">
+          <div className="sticky top-8 bg-white p-6 rounded-3xl shadow-2xl ring-1 ring-black/5 space-y-6">
             <div>
               <p className="text-sm text-gray-400">Price per slot</p>
               <p className="text-xl font-black">
