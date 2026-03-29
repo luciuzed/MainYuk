@@ -81,7 +81,7 @@ const BookingDetailPage = () => {
 
   // Get selected slot objects for calculation
   const selectedSlotObjects = selectedDateSlots.filter(slot => selectedSlotIds.includes(slot.id));
-  const totalPrice = selectedSlotObjects.reduce((sum, slot) => sum + parseFloat(slot.price), 0);
+  const totalPrice = selectedSlotObjects.reduce((sum, slot) => sum + parseInt(slot.price), 0);
 
   const handleRemoveSlot = (slotId) => {
     setSelectedSlotIds(prev => prev.filter(id => id !== slotId));
@@ -102,7 +102,7 @@ const BookingDetailPage = () => {
   // Get price for a specific court
   const getCourtPrice = (courtId) => {
     const courtSlot = selectedDateSlots.find(slot => slot.court_id === courtId);
-    return courtSlot ? courtSlot.price : 0;
+    return courtSlot ? parseInt(courtSlot.price) : 0;
   };
 
   // Toggle slot selection
@@ -287,7 +287,7 @@ Total: Rp ${totalPrice.toLocaleString()}`;
               <p className="text-sm text-gray-400">Price per slot</p>
               <p className="text-xl font-black">
                 {selectedSlotObjects.length > 0 
-                  ? `Rp ${Math.round(selectedSlotObjects[0].price).toLocaleString()}`
+                  ? `Rp ${parseInt(selectedSlotObjects[0].price).toLocaleString()}`
                   : 'Select slots'
                 }
               </p>

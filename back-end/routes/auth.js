@@ -9,7 +9,7 @@ const router = express.Router();
 router.post('/register', async (req, res) => {
   const { email, password, name, phone } = req.body;
   try {
-    const [existing] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
+    const [existing] = await db.execute('SELECT id FROM user WHERE email = ?', [email]);
     if (existing.length > 0) {
       return res.status(409).json({ error: 'Email already registered' });
     }
@@ -89,7 +89,7 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   console.log("Login attempt for:", email);
   try {
-    const [rows] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
+    const [rows] = await db.execute('SELECT * FROM user WHERE email = ?', [email]);
     if (rows.length === 0) return res.status(401).json({ error: "User not found" });
 
     const user = rows[0];
@@ -230,8 +230,8 @@ router.post('/verify-otp', async (req, res) => {
     userData.phone = entry.payload.phone;
 
     try {
-      const table = entry.role === 'Business' ? 'admin' : 'users';
-      const phoneCol = entry.role === 'Business' ? 'number' : 'phone_number';
+      const table = entry.role === 'Business' ? 'admin' : 'user';
+      const phoneCol = entry.role === 'Business' ? 'number' : 'number';
       await db.execute(
         `INSERT INTO ${table} (email, password, name, ${phoneCol}) VALUES (?, ?, ?, ?)`,
         [entry.payload.email, entry.payload.password, entry.payload.name, entry.payload.phone]
@@ -248,8 +248,8 @@ router.post('/verify-otp', async (req, res) => {
     }
   } else {
     // FOR LOGIN: We need to ask the Database for the name/phone since they aren't in the OTP store
-    const table = entry.role === 'Business' ? 'admin' : 'users';
-    const phoneCol = entry.role === 'Business' ? 'number' : 'phone_number';
+    const table = entry.role === 'Business' ? 'admin' : 'user';
+    const phoneCol = entry.role === 'Business' ? 'number' : 'number';
     const [rows] = await db.execute(`SELECT id, name, ${phoneCol} as phone FROM ${table} WHERE email = ?`, [email]);
     
     if (rows.length > 0) {

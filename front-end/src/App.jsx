@@ -7,6 +7,8 @@ import LoginPage from "./page/LoginPage"
 import BookingPage from "./page/BookingPage"
 import BookingDetailPage from "./page/BookingDetailPage"
 import AdminDashboard from "./page/AdminDashboard"
+import AdminManageField from "./page/AdminManageField"
+import AdminBooking from "./page/AdminBooking"
 import ProfilePage from "./page/ProfilePage"
 
 // Protected route wrapper to redirect users based on role
@@ -93,7 +95,7 @@ const LoginGuard = ({ children }) => {
 
 function App() {
   const location = useLocation()
-  const fullWidthPages = ["/dashboard", "/profile"]
+  const fullWidthPages = ["/dashboard", "/profile", "/field", "/booking"]
   const showNavbar = !fullWidthPages.includes(location.pathname)
   const isFullWidth = fullWidthPages.includes(location.pathname)
   const wrapperClass = isFullWidth ? "min-h-screen" : "container mx-auto px-10"
@@ -118,6 +120,22 @@ function App() {
           element={
             <ProtectedRoute allowedRole="admin">
               <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/field" 
+          element={
+            <ProtectedRoute allowedRole="admin">
+              <AdminManageField />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/booking" 
+          element={
+            <ProtectedRoute allowedRole="admin">
+              <AdminBooking />
             </ProtectedRoute>
           } 
         />
