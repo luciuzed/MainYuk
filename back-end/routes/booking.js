@@ -3,6 +3,15 @@ const db = require('../config/database');
 
 const router = express.Router();
 
+const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const formatDateLocal = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // ============ CREATE BOOKING ============
 // POST /api/bookings
 router.post('/', async (req, res) => {
@@ -211,6 +220,68 @@ router.get('/user/:userId', async (req, res) => {
   } catch (err) {
     console.error('Fetch user bookings error:', err);
     res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
+
+// ============ GET BOOKINGS FOR AN ADMIN (All their fields' bookings) ============
+// GET /api/bookings/admin/:adminId/performance
+router.get('/admin/:adminId/performance', async (req, res) => {
+  const { adminId } = req.params;
+
+  try {
+    const [rows] = await db.execute(
+      `
+      SELECT DATE(fs.start_time) AS slot_date, COUNT(DISTINCT fs.id) AS booked_slots
+      FROM field_slot fs
+      JOIN field f ON fs.field_id = f.id
+      JOIN booking_slot bs ON bs.slot_id = fs.id
+      JOIN booking b ON b.id = bs.booking_id
+      WHERE f.admin_id = ?
+        AND fs.is_booked = 1
+        AND b.status = 'confirmed'
+        AND DATE(fs.start_time) BETWEEN DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+                                  AND DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 6 DAY)
+      GROUP BY DATE(fs.start_time)
+      ORDER BY slot_date ASC
+      `,
+      [adminId]
+    );
+
+    const today = new Date();
+    const mondayOffset = (today.getDay() + 6) % 7;
+    const weekStart = new Date(today);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(today.getDate() - mondayOffset);
+
+    const weeklyDates = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + index);
+      return formatDateLocal(date);
+    });
+
+    const countByDate = rows.reduce((acc, row) => {
+      const key = formatDateLocal(new Date(row.slot_date));
+      acc[key] = Number(row.booked_slots) || 0;
+      return acc;
+    }, {});
+
+    const daily = weeklyDates.map((date, index) => ({
+      label: dayLabels[index],
+      date,
+      bookedSlots: countByDate[date] || 0,
+    }));
+
+    res.json({
+      weekStart: weeklyDates[0],
+      weekEnd: weeklyDates[6],
+      daily,
+    });
+  } catch (err) {
+    console.error('Fetch admin weekly performance error:', err);
+    res.status(500).json({
+      error: 'Failed to fetch weekly performance',
+      details: err.message,
+    });
   }
 });
 

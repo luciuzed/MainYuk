@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Cookies from 'js-cookie'
-import { FiBarChart2, FiBriefcase, FiGrid, FiPlus, FiEdit2, FiTrash2, FiX, FiCheck, FiTrendingUp, FiAward, FiUsers, FiCalendar } from 'react-icons/fi'
+import { FiBarChart2, FiGrid, FiPlus, FiEdit2, FiTrash2, FiX, FiCheck, FiTrendingUp, FiCalendar } from 'react-icons/fi'
 import LoadingOverlay from '../components/LoadingOverlay'
 import Sidebar from '../components/Sidebar'
+import SuccessMessage from '../components/SuccessMessage'
 
 const AdminDashboard = () => {
   const navigate = useNavigate()
@@ -12,9 +13,10 @@ const AdminDashboard = () => {
   const [adminEmail, setAdminEmail] = useState('')
   const [fields, setFields] = useState([])
   const [bookings, setBookings] = useState([])
+  const [weeklyPerformance, setWeeklyPerformance] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [success, setSuccess] = useState(null)
 
   // Check admin session on mount
   useEffect(() => {
@@ -43,6 +45,7 @@ const AdminDashboard = () => {
     if (adminId) {
       fetchFields()
       fetchBookings()
+      fetchWeeklyPerformance()
     }
   }, [adminId])
 
@@ -78,6 +81,23 @@ const AdminDashboard = () => {
     }
   }
 
+  const fetchWeeklyPerformance = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/bookings/admin/${adminId}/performance`)
+      if (response.ok) {
+        const data = await response.json()
+        const counts = Array.isArray(data.daily)
+          ? data.daily.map((item) => Number(item.bookedSlots) || 0)
+          : []
+        setWeeklyPerformance(counts)
+      } else {
+        console.error('Failed to fetch weekly performance:', response.status)
+      }
+    } catch (err) {
+      console.error('Failed to fetch weekly performance:', err)
+    }
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('adminId')
     Cookies.remove('admin_session')
@@ -90,6 +110,12 @@ const AdminDashboard = () => {
     confirmedBookings: bookings.filter((b) => b.status === 'confirmed').length,
   }
 
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const weeklySlotCounts = dayLabels.map((_, index) => weeklyPerformance[index] || 0)
+
+  const highestDayCount = Math.max(...weeklySlotCounts, 0)
+  const chartMax = Math.max(1, highestDayCount)
+
   const tabItems = [
     { id: 'dashboard', label: 'Dashboard', icon: FiBarChart2, path: '/dashboard' },
     { id: 'fields', label: 'Manage Fields', icon: FiGrid, path: '/field' },
@@ -98,6 +124,11 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900 flex">
+      <SuccessMessage
+        message={success?.message}
+        triggerKey={success?.id}
+        onClose={() => setSuccess(null)}
+      />
       <Sidebar
         activeTabId="dashboard"
         adminName={adminName}
@@ -114,11 +145,6 @@ const AdminDashboard = () => {
               {error}
             </div>
           )}
-          {success && (
-            <div className="mb-6 inline-block rounded-full bg-green-50 border border-green-300 text-green-700 px-5 py-2 text-sm font-semibold shadow-sm">
-              {success}
-            </div>
-          )}
 
           {/* DASHBOARD CONTENT */}
           <div className="space-y-8">
@@ -130,7 +156,7 @@ const AdminDashboard = () => {
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-500">
                       Your Venues
                     </p>
-                    <FiBriefcase className="text-primary/40 h-5 w-5" />
+                    <FiGrid className="text-primary/40 h-5 w-5" />
                   </div>
                   <p className="text-4xl font-bold text-primary">
                     {stats.totalFields}
@@ -142,7 +168,18 @@ const AdminDashboard = () => {
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-500">
                       Pending Bookings
                     </p>
-                    <FiTrendingUp className="text-primary/40 h-5 w-5" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="text-primary/40 h-5 w-5"
+                      aria-hidden="true"
+                    >
+                      <path d="M5 22h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M5 2h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M17 22c0-4-3-6-5-8-2 2-5 4-5 8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M17 2c0 4-3 6-5 8-2-2-5-4-5-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </div>
                   <p className="text-4xl font-bold text-primary">
                     {stats.pendingBookings}
@@ -154,7 +191,21 @@ const AdminDashboard = () => {
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-500">
                       Confirmed Bookings
                     </p>
-                    <FiAward className="text-primary/40 h-5 w-5" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="text-primary/40 h-5 w-5"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M5 13l4 4L19 7"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </div>
                   <p className="text-4xl font-bold text-primary">
                     {stats.confirmedBookings}
@@ -166,8 +217,61 @@ const AdminDashboard = () => {
 
             {/* Additional Dashboard Sections */}
             <div className="grid gap-6 lg:grid-cols-2">
+              {/* Performance Overview */}
+              <div className="rounded-2xl bg-white p-6 border border-gray-100 shadow-sm min-h-128 flex flex-col">
+                <div className="flex items-center gap-2 mb-4">
+                  <FiBarChart2 className="text-primary" />
+                  <h3 className="text-lg font-bold text-gray-900">Performance</h3>
+                </div>
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="mb-4">
+                    <span className="text-xs text-gray-400">Booked Slots This Week</span>
+                  </div>
+                  <div className="flex-1 min-h-0 rounded-xl bg-gray-50 border border-gray-100 p-4">
+                    <div className="h-full flex">
+                      <div className="w-10 relative shrink-0 mr-2">
+                        <div className="absolute top-2 bottom-6 right-0 w-px bg-gray-300" />
+                        <span className="absolute top-0 right-2 text-[10px] text-gray-400 font-semibold">{chartMax}</span>
+                        <span className="absolute top-1/2 -translate-y-1/2 right-2 text-[10px] text-gray-400 font-semibold">{Math.round(chartMax / 2)}</span>
+                        <span className="absolute bottom-5 right-2 text-[10px] text-gray-400 font-semibold">0</span>
+                      </div>
+
+                      <div className="flex-1 min-w-0 flex flex-col">
+                        <div className="grid grid-cols-7 gap-2 flex-1">
+                          {weeklySlotCounts.map((count, index) => {
+                            const heightPercent = (count / chartMax) * 100
+                            const barHeight = count === 0 ? 0 : Math.max(6, heightPercent)
+
+                            return (
+                              <div key={dayLabels[index]} className="h-full flex items-end">
+                                <div
+                                  className="w-full rounded-md bg-primary transition-all"
+                                  style={{ height: `${barHeight}%` }}
+                                  aria-label={`${dayLabels[index]} bookings ${count}`}
+                                />
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        <div className="h-px bg-gray-300" />
+
+                        <div className="grid grid-cols-7 gap-2 pt-2">
+                          {weeklySlotCounts.map((count, index) => (
+                            <div key={`${dayLabels[index]}-label`} className="flex flex-col items-center">
+                              <span className="text-[10px] text-gray-500 font-bold leading-none">{dayLabels[index]}</span>
+                              <span className="text-[10px] text-gray-500 font-semibold leading-none mt-1">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Quick Actions */}
-              <div className="rounded-2xl bg-linear-to-br from-primary/5 to-transparent p-6 border border-primary/10">
+              <div className="rounded-2xl bg-white p-6 border border-gray-100 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <FiPlus className="text-primary" />
                   <h3 className="text-lg font-bold text-gray-900">Quick Actions</h3>
@@ -187,46 +291,76 @@ const AdminDashboard = () => {
                   </button>
                 </div>
               </div>
-
-              {/* Performance Overview */}
-              <div className="rounded-2xl bg-linear-to-br from-blue-50 to-transparent p-6 border border-blue-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <FiTrendingUp className="text-blue-600" />
-                  <h3 className="text-lg font-bold text-gray-900">Performance</h3>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-700 font-medium">Confirmation Rate</span>
-                      <span className="text-gray-900 font-bold">{(stats.pendingBookings + stats.confirmedBookings) > 0 ? Math.round((stats.confirmedBookings / (stats.pendingBookings + stats.confirmedBookings)) * 100) : 0}%</span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-linear-to-r from-blue-400 to-blue-600 transition-all"
-                        style={{ width: `${(stats.pendingBookings + stats.confirmedBookings) > 0 ? (stats.confirmedBookings / (stats.pendingBookings + stats.confirmedBookings)) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Recent Venues */}
             {fields.length > 0 && (
               <div className="rounded-2xl bg-white p-6 border border-gray-100 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
-                  <FiUsers className="text-primary" />
                   <h3 className="text-lg font-bold text-gray-900">Recent Venues</h3>
                 </div>
                 <div className="space-y-2">
                   {fields.slice(0, 3).map((field) => (
                     <div key={field.id} className="flex justify-between items-center p-3 rounded-lg bg-gray-50 border border-gray-100">
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">{field.name}</p>
-                        <p className="text-xs text-gray-500">{field.city} • {field.category}</p>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-14 w-14 shrink-0 bg-linear-to-br from-gray-200 to-gray-300 overflow-hidden rounded-lg">
+                          {field.image_url ? (
+                            <img src={field.image_url} alt={field.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center bg-gray-100">
+                              <FiGrid className="h-6 w-6 text-gray-300" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 text-sm truncate">{field.name}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <span className="inline-block bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full text-[11px] font-medium">
+                              {field.category || 'Uncategorized'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${field.is_active === 1 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {field.is_active === 1 ? '✓ Open' : '⊘ Closed'}
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${field.is_active === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {field.is_active === 1 ? (
+                          <span className="inline-flex items-center gap-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              className="w-3.5 h-3.5"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M5 13l4 4L19 7"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                            <span>Open</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              className="w-3.5 h-3.5"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M6 6l12 12M18 6l-12 12"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                            <span>Closed</span>
+                          </span>
+                        )}
                       </span>
                     </div>
                   ))}

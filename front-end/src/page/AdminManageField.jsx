@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { FiBarChart2, FiBriefcase, FiGrid, FiPlus, FiEdit2, FiTrash2, FiX, FiCheck, FiTrendingUp, FiAward, FiUsers, FiCalendar } from 'react-icons/fi'
+import { FiBarChart2, FiGrid, FiPlus, FiEdit2, FiTrash2, FiX, FiCheck, FiTrendingUp, FiAward, FiUsers, FiCalendar } from 'react-icons/fi'
 import Cookies from 'js-cookie'
 import LoadingOverlay from '../components/LoadingOverlay'
 import Sidebar from '../components/Sidebar'
 import AdminManageSlot from './AdminManageSlot'
+import ConfirmationModal from './ConfirmationModal'
+import SuccessMessage from '../components/SuccessMessage'
+
+const MAX_DESCRIPTION_LENGTH = 160
+const MAX_ADDRESS_LENGTH = 150
 
 const AdminManageField = () => {
   const navigate = useNavigate()
@@ -17,13 +22,14 @@ const AdminManageField = () => {
   const [showFieldForm, setShowFieldForm] = useState(false)
   const [editingField, setEditingField] = useState(null)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [success, setSuccess] = useState(null)
   const [showSlotsModal, setShowSlotsModal] = useState(false)
   const [selectedFieldForSlots, setSelectedFieldForSlots] = useState(null)
+  const [fieldToDelete, setFieldToDelete] = useState(null)
+  const [isDeleteProcessing, setIsDeleteProcessing] = useState(false)
 
   const showSuccessMessage = (message) => {
-    setSuccess(message)
-    setTimeout(() => setSuccess(''), 3000)
+    setSuccess({ id: Date.now(), message })
   }
 
   const {
@@ -83,7 +89,7 @@ const AdminManageField = () => {
   const handleFieldSubmit = async (data) => {
     try {
       setError('')
-      setSuccess('')
+      setSuccess(null)
 
       const fieldData = {
         adminId,
@@ -139,28 +145,39 @@ const AdminManageField = () => {
     setShowFieldForm(true)
   }
 
-  const handleDeleteField = async (fieldId) => {
-    if (!window.confirm('Are you sure you want to permanently delete this field? This cannot be undone.')) {
-      return
-    }
+  const openDeleteFieldModal = (fieldId) => {
+    setFieldToDelete(fieldId)
+  }
+
+  const closeDeleteFieldModal = () => {
+    if (isDeleteProcessing) return
+    setFieldToDelete(null)
+  }
+
+  const handleDeleteField = async () => {
+    if (!fieldToDelete) return
 
     try {
-      const response = await fetch(`http://localhost:5000/api/fields/${fieldId}`, {
+      setIsDeleteProcessing(true)
+      const response = await fetch(`http://localhost:5000/api/fields/${fieldToDelete}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminId }),
       })
 
       if (response.ok) {
-        showSuccessMessage('✓ Field removed')
+        showSuccessMessage('Field removed')
         setError('')
         fetchFields()
+        setFieldToDelete(null)
       } else {
         const errorData = await response.json()
         setError(errorData.error || 'Failed to remove field')
       }
     } catch (err) {
       setError('Cannot connect to server')
+    } finally {
+      setIsDeleteProcessing(false)
     }
   }
 
@@ -190,6 +207,11 @@ const AdminManageField = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900 flex">
+      <SuccessMessage
+        message={success?.message}
+        triggerKey={success?.id}
+        onClose={() => setSuccess(null)}
+      />
       <Sidebar
         activeTabId="fields"
         adminName={adminName}
@@ -204,11 +226,6 @@ const AdminManageField = () => {
           {error && (
             <div className="mb-6 rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
               {error}
-            </div>
-          )}
-          {success && (
-            <div className="mb-6 inline-block rounded-full bg-green-50 border border-green-300 text-green-700 px-5 py-2 text-sm font-semibold shadow-sm">
-              {success}
             </div>
           )}
 
@@ -240,25 +257,85 @@ const AdminManageField = () => {
                 {fields.map((field) => (
                   <div
                     key={field.id}
-                    className={`bg-white rounded-2xl shadow-sm border transition ${field.is_active === 0 ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-100'} hover:shadow-md overflow-hidden`}
+                    className={`relative bg-white rounded-2xl shadow-sm border transition ${field.is_active === 0 ? 'border-red-200 bg-red-50/30' : 'border-gray-100'} hover:shadow-md overflow-hidden`}
                   >
-                    <div className="flex items-start justify-between p-4">
+                    <div className="flex items-start p-4">
                       <div className="h-32 w-32 shrink-0 bg-linear-to-br from-gray-200 to-gray-300 overflow-hidden rounded-xl ml-2">
 
                         {field.image_url ? (
                           <img src={field.image_url} alt={field.name} className="h-full w-full object-cover" />
                         ) : (
-                          <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                            <FiBriefcase className="h-12 w-12 text-gray-300" />
+                          <div className="h-full w-full flex items-center justify-center bg-gray-300">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 280 200"
+                              className="h-12 w-12 text-white"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              {/* Outer field boundary */}
+                              <rect x="20" y="20" width="240" height="160" />
+                              {/* Center line */}
+                              <line x1="140" y1="20" x2="140" y2="180" />
+                              {/* Center circle */}
+                              <circle cx="140" cy="100" r="20" />
+                              {/* Center dot */}
+                              <circle cx="140" cy="100" r="2" fill="currentColor" />
+                              {/* Goal area left */}
+                              <rect x="20" y="60" width="30" height="80" />
+                              {/* Goal area right */}
+                              <rect x="230" y="60" width="30" height="80" />
+                            </svg>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex-1 px-8">
+                      <div className="flex-1 px-8 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-lg font-bold">{field.name}</h3>
-                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${field.is_active === 1 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {field.is_active === 1 ? '✓ Open' : '⊘ Closed'}
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${field.is_active === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {field.is_active === 1 ? (
+                              <span className="inline-flex items-center gap-1">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  className="w-3.5 h-3.5"
+                                  aria-hidden="true"
+                                >
+                                  <path
+                                    d="M5 13l4 4L19 7"
+                                    stroke="currentColor"
+                                    strokeWidth="3"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                                <span>Open</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  className="w-3.5 h-3.5"
+                                  aria-hidden="true"
+                                >
+                                  <path
+                                    d="M6 6l12 12M18 6l-12 12"
+                                    stroke="currentColor"
+                                    strokeWidth="3"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                                <span>Closed</span>
+                              </span>
+                            )}
                           </span>
                         </div>
                         <div className="space-y-1 text-sm text-gray-600">
@@ -267,11 +344,10 @@ const AdminManageField = () => {
                           </p>
                           <p><span className="font-semibold text-gray-900">Address:</span> {field.address}</p>
                           {field.city && <p><span className="font-semibold text-gray-900">City:</span> {field.city}</p>}
-                          {field.description && <p><span className="font-semibold text-gray-900">Description:</span> {field.description}</p>}
                         </div>
                       </div>
 
-                      <div className="flex gap-2 pr-4 shrink-0">
+                      <div className="absolute top-4 right-4 z-10 flex gap-2 shrink-0">
                         <button
                           onClick={() => openSlotsModal(field)}
                           className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-lg transition font-medium"
@@ -287,7 +363,7 @@ const AdminManageField = () => {
                           <FiEdit2 className="h-5 w-5" />
                         </button>
                         <button
-                          onClick={() => handleDeleteField(field.id)}
+                          onClick={() => openDeleteFieldModal(field.id)}
                           className="p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition font-medium"
                           title="Delete field"
                         >
@@ -355,6 +431,7 @@ const AdminManageField = () => {
                   <option value="Badminton">Badminton</option>
                   <option value="Basketball">Basketball</option>
                   <option value="Tennis">Tennis</option>
+                  <option value="Biliard">Biliard</option>
                 </select>
                 {errors.category && (
                   <p className="text-red-500 text-sm mt-1 ml-4">{errors.category.message}</p>
@@ -364,8 +441,15 @@ const AdminManageField = () => {
               <div>
                 <label className="block text-sm font-semibold mb-2 text-gray-700">Address *</label>
                 <input
-                  {...register('address', { required: 'Address is required' })}
+                  {...register('address', {
+                    required: 'Address is required',
+                    maxLength: {
+                      value: MAX_ADDRESS_LENGTH,
+                      message: `Address must be ${MAX_ADDRESS_LENGTH} characters or fewer`,
+                    },
+                  })}
                   placeholder="e.g., Jl. Merdeka No. 1"
+                  maxLength={MAX_ADDRESS_LENGTH}
                   className={`w-full px-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm ${
                     errors.address ? 'border-red-500' : 'border-gray-300'
                   }`}
@@ -398,11 +482,20 @@ const AdminManageField = () => {
               <div>
                 <label className="block text-sm font-semibold mb-2 text-gray-700">Description</label>
                 <textarea
-                  {...register('description')}
+                  {...register('description', {
+                    maxLength: {
+                      value: MAX_DESCRIPTION_LENGTH,
+                      message: `Description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer`,
+                    },
+                  })}
                   placeholder="Add details about your field..."
                   rows="3"
+                  maxLength={MAX_DESCRIPTION_LENGTH}
                   className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm resize-none"
                 />
+                {errors.description && (
+                  <p className="text-red-500 text-sm mt-1 ml-4">{errors.description.message}</p>
+                )}
               </div>
 
               <div>
@@ -440,9 +533,64 @@ const AdminManageField = () => {
                 </label>
                 <span className="text-xs font-medium text-gray-500">
                   {editingField ? (
-                    editingField.is_active === 1 ? '✓ Open' : '✗ Closed'
+                    editingField.is_active === 1 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          className="w-3.5 h-3.5"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M5 13l4 4L19 7"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        <span>Open</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          className="w-3.5 h-3.5"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M6 6l12 12M18 6l-12 12"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        <span>Closed</span>
+                      </span>
+                    )
                   ) : (
-                    '✓ Open'
+                    <span className="inline-flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className="w-3.5 h-3.5"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M5 13l4 4L19 7"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <span>Open</span>
+                    </span>
                   )}
                 </span>
               </div>
@@ -469,6 +617,14 @@ const AdminManageField = () => {
 
       {/* LOADING OVERLAY */}
       <LoadingOverlay show={loading} />
+
+      <ConfirmationModal
+        isOpen={fieldToDelete !== null}
+        onClose={closeDeleteFieldModal}
+        onConfirm={handleDeleteField}
+        actionText="permanently delete this field"
+        isProcessing={isDeleteProcessing}
+      />
     </div>
   )
 }

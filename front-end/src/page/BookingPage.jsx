@@ -33,7 +33,7 @@ const BookingPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [currentPage])
 
-  const categories = ['All', 'Futsal', 'Badminton', 'Basketball', 'Tennis']
+  const categories = ['All', 'Futsal', 'Badminton', 'Basketball', 'Tennis', 'Biliard']
 
   const filteredFields = useMemo(() => {
     return fields.filter(item => {

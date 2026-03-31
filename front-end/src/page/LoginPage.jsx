@@ -46,6 +46,7 @@ const LoginPage = () => {
   const [showOtpUI, setShowOtpUI] = useState(false)
   const [otpCode, setOtpCode] = useState(['', '', '', ''])
   const [otpRemaining, setOtpRemaining] = useState(60)
+  const [otpTimerCycle, setOtpTimerCycle] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [pendingRegisterData, setPendingRegisterData] = useState(null)
   const [pendingLoginRoute, setPendingLoginRoute] = useState(null)
@@ -93,35 +94,7 @@ const LoginPage = () => {
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [showOtpUI])
-
-  useEffect(() => {
-    if (prevShowOtp.current && !showOtpUI) {
-      setError('')
-    }
-    prevShowOtp.current = showOtpUI
-  }, [showOtpUI])
-
-  useEffect(() => {
-    if (!showOtpUI) return
-    setOtpRemaining(60)
-
-    if (otpRefs.current[0]) {
-      otpRefs.current[0].focus()
-    }
-
-    const interval = setInterval(() => {
-      setOtpRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [showOtpUI])
+  }, [showOtpUI, otpTimerCycle])
 
   const {
     register,
@@ -150,6 +123,8 @@ const LoginPage = () => {
         const targetRoute = role === "User" ? "/venue" : "/dashboard"
         setPendingOtpInfo({ email: formData.email, role, redirect: targetRoute })
         setPendingLoginRoute(targetRoute)
+        setOtpCode(['', '', '', ''])
+        setOtpTimerCycle((prev) => prev + 1)
         setShowOtpUI(true)
         setError('')
         return
@@ -198,6 +173,8 @@ const LoginPage = () => {
       if (response.ok && data.otpNeeded) {
         const targetRoute = role === "User" ? "/home" : "/dashboard"
         setPendingOtpInfo({ email: formData.email, role, name: formData.fullName, phone: formData.phone, redirect: targetRoute })
+        setOtpCode(['', '', '', ''])
+        setOtpTimerCycle((prev) => prev + 1)
         setShowOtpUI(true)
         setPendingRegisterData(null)
         setError('')
@@ -286,7 +263,8 @@ const LoginPage = () => {
       const data = await response.json()
       if (response.ok) {
         setError('OTP resent successfully')
-        setOtpRemaining(60)
+        setOtpCode(['', '', '', ''])
+        setOtpTimerCycle((prev) => prev + 1)
       } else {
         setError(data.error || 'Failed to resend OTP')
       }
@@ -811,7 +789,7 @@ const LoginPage = () => {
                 key={idx}
                 src={img}
                 alt={`Slide ${idx + 1}`}
-                className="w-full h-full flex-shrink-0 object-cover"
+                className="w-full h-full shrink-0 object-cover"
               />
             ))}
           </div>

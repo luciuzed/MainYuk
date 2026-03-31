@@ -5,6 +5,12 @@ const { otpStore, generateOtp, sendOtpEmail } = require('../utils/otp');
 
 const router = express.Router();
 
+const normalizeOtpRoleKey = (role = '') => {
+  const normalized = String(role).trim().toLowerCase();
+  if (normalized === 'business' || normalized === 'admin') return 'business';
+  return 'user';
+};
+
 // REGISTER
 router.post('/register', async (req, res) => {
   const { email, password, name, phone } = req.body;
@@ -161,7 +167,7 @@ router.post('/resend-otp', async (req, res) => {
     return res.status(400).json({ error: 'Email and role are required' });
   }
 
-  const key = `${email}:${role.toLowerCase()}`;
+  const key = `${email}:${normalizeOtpRoleKey(role)}`;
   const entry = otpStore[key];
 
   if (!entry) {
@@ -191,7 +197,7 @@ router.post('/verify-otp', async (req, res) => {
     return res.status(400).json({ error: 'Email, role, and OTP are required' });
   }
 
-  const key = `${email}:${role.toLowerCase()}`;
+  const key = `${email}:${normalizeOtpRoleKey(role)}`;
   const entry = otpStore[key];
 
   console.log(`[VERIFY-OTP] Attempting to verify OTP`);

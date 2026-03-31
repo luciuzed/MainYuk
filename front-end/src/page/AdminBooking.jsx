@@ -4,6 +4,8 @@ import { FiBarChart2, FiBriefcase, FiGrid, FiPlus, FiEdit2, FiTrash2, FiX, FiChe
 import Cookies from 'js-cookie'
 import LoadingOverlay from '../components/LoadingOverlay'
 import Sidebar from '../components/Sidebar'
+import ConfirmationModal from './ConfirmationModal'
+import SuccessMessage from '../components/SuccessMessage'
 
 const AdminBooking = () => {
   const navigate = useNavigate()
@@ -13,7 +15,11 @@ const AdminBooking = () => {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [success, setSuccess] = useState(null)
+  const [bookingToCancel, setBookingToCancel] = useState(null)
+  const [isCancelProcessing, setIsCancelProcessing] = useState(false)
+
+  const showSuccessMessage = (message) => setSuccess({ id: Date.now(), message })
 
   // Check admin session on mount
   useEffect(() => {
@@ -69,7 +75,7 @@ const AdminBooking = () => {
 
   const handleConfirmBooking = async (bookingId) => {
     try {
-      setSuccess('')
+      setSuccess(null)
       setError('')
       const response = await fetch(`http://localhost:5000/api/bookings/${bookingId}/confirm`, {
         method: 'POST',
@@ -77,9 +83,8 @@ const AdminBooking = () => {
       })
       
       if (response.ok) {
-        setSuccess('Booking confirmed successfully')
+        showSuccessMessage('Booking confirmed successfully')
         fetchBookings()
-        setTimeout(() => setSuccess(''), 3000)
       } else {
         const data = await response.json()
         setError(data.error || 'Failed to confirm booking')
@@ -90,28 +95,40 @@ const AdminBooking = () => {
     }
   }
 
-  const handleCancelBooking = async (bookingId) => {
-    if (window.confirm('Are you sure you want to cancel this booking?')) {
-      try {
-        setSuccess('')
-        setError('')
-        const response = await fetch(`http://localhost:5000/api/bookings/${bookingId}/cancel`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        })
-        
-        if (response.ok) {
-          setSuccess('Booking cancelled successfully')
-          fetchBookings()
-          setTimeout(() => setSuccess(''), 3000)
-        } else {
-          const data = await response.json()
-          setError(data.error || 'Failed to cancel booking')
-        }
-      } catch (err) {
-        console.error('Cancel error:', err)
-        setError('Unable to connect to server')
+  const openCancelModal = (bookingId) => {
+    setBookingToCancel(bookingId)
+  }
+
+  const closeCancelModal = () => {
+    if (isCancelProcessing) return
+    setBookingToCancel(null)
+  }
+
+  const handleCancelBooking = async () => {
+    if (!bookingToCancel) return
+
+    try {
+      setIsCancelProcessing(true)
+      setSuccess(null)
+      setError('')
+      const response = await fetch(`http://localhost:5000/api/bookings/${bookingToCancel}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      if (response.ok) {
+        showSuccessMessage('Booking cancelled successfully')
+        fetchBookings()
+        setBookingToCancel(null)
+      } else {
+        const data = await response.json()
+        setError(data.error || 'Failed to cancel booking')
       }
+    } catch (err) {
+      console.error('Cancel error:', err)
+      setError('Unable to connect to server')
+    } finally {
+      setIsCancelProcessing(false)
     }
   }
 
@@ -123,6 +140,11 @@ const AdminBooking = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900 flex">
+      <SuccessMessage
+        message={success?.message}
+        triggerKey={success?.id}
+        onClose={() => setSuccess(null)}
+      />
       <Sidebar
         activeTabId="bookings"
         adminName={adminName}
@@ -137,11 +159,6 @@ const AdminBooking = () => {
           {error && (
             <div className="mb-6 rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
               {error}
-            </div>
-          )}
-          {success && (
-            <div className="mb-6 inline-block rounded-full bg-green-50 border border-green-300 text-green-700 px-5 py-2 text-sm font-semibold shadow-sm">
-              {success}
             </div>
           )}
 
@@ -180,7 +197,26 @@ const AdminBooking = () => {
                             booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                             'bg-red-100 text-red-700'
                         }`}>
-                            {booking.status === 'confirmed' && <span>✓ Confirmed</span>}
+                            {booking.status === 'confirmed' && (
+                              <span className="inline-flex items-center gap-1">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  className="w-3.5 h-3.5"
+                                  aria-hidden="true"
+                                >
+                                  <path
+                                    d="M5 13l4 4L19 7"
+                                    stroke="currentColor"
+                                    strokeWidth="3"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                                <span>Confirmed</span>
+                              </span>
+                            )}
                             
                             {booking.status === 'pending' && (
                                 <>
@@ -204,7 +240,26 @@ const AdminBooking = () => {
                                 </>
                             )}
 
-                            {booking.status === 'cancelled' && <span>✗ Cancelled</span>}
+                            {booking.status === 'cancelled' && (
+                              <span className="inline-flex items-center gap-1">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  className="w-3.5 h-3.5"
+                                  aria-hidden="true"
+                                >
+                                  <path
+                                    d="M6 6l12 12M18 6l-12 12"
+                                    stroke="currentColor"
+                                    strokeWidth="3"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                                <span>Cancelled</span>
+                              </span>
+                            )}
                         </span>
                       </div>
 
@@ -253,10 +308,25 @@ const AdminBooking = () => {
                       {booking.status === 'pending' && (
                         <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-gray-200">
                           <button
-                            onClick={() => handleCancelBooking(booking.id)}
-                            className="px-4 py-2 text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition"
+                            onClick={() => openCancelModal(booking.id)}
+                            className="px-4 py-2 text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition inline-flex items-center gap-2"
                           >
-                            Cancel
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              className="w-4 h-4"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M6 6l12 12M18 6l-12 12"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                            <span>Cancel</span>
                           </button>
                           <button
                             onClick={() => handleConfirmBooking(booking.id)}
@@ -277,6 +347,14 @@ const AdminBooking = () => {
 
       {/* LOADING OVERLAY */}
       <LoadingOverlay show={loading} />
+
+      <ConfirmationModal
+        isOpen={bookingToCancel !== null}
+        onClose={closeCancelModal}
+        onConfirm={handleCancelBooking}
+        actionText="cancel this booking"
+        isProcessing={isCancelProcessing}
+      />
     </div>
   )
 }

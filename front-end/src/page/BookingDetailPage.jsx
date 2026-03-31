@@ -183,22 +183,28 @@ Total: Rp ${totalPrice.toLocaleString()}`;
             <h1 className="text-3xl font-black">{field.name}</h1>
             <button
               onClick={openGoogleMaps}
-              className="flex items-center gap-2 text-primary mt-2 hover:underline"
+              className="mt-2 flex w-full items-start gap-2 text-left text-primary hover:underline"
             >
-              <FaMapMarkerAlt /> {field.address}
+              <FaMapMarkerAlt className="mt-0.5 shrink-0" />
+              <span className="min-w-0 wrap-anywhere">{field.address}</span>
             </button>
+
+            <div className="mt-3 flex flex-wrap gap-3">
+              <div className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
+                {field.category}
+              </div>
+              {field.city && (
+                <div className="px-3 py-1 text-xs rounded-full bg-blue-100 text-blue-700 font-semibold">
+                  {field.city}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="p-6 rounded-2xl" style={{backgroundColor: '#f2f2f2'}}>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 whitespace-pre-line wrap-anywhere">
               {field.description || "No description available."}
             </p>
-          </div>
-
-          <div className="flex gap-2 flex-wrap">
-            <div className="px-3 py-1 text-xs rounded-full bg-blue-100 text-blue-700 font-semibold">
-              {field.category}
-            </div>
           </div>
 
           <div>
@@ -293,9 +299,23 @@ Total: Rp ${totalPrice.toLocaleString()}`;
                           {isBooked ? (
                             <span className="text-[9px] sm:text-[11px]">Unavailable</span>
                           ) : isSelected ? (
-                            "✓"
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              className="w-5 h-5"
+                              aria-label="Selected"
+                            >
+                              <path
+                                d="M5 13l4 4L19 7"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
                           ) : (
-                            <span className="text-[9px] sm:text-[11px]">
+                            <span className="text-[9px] sm:text-[10px] font-bold text-primary">
                               Rp {getCourtPrice(court.id).toLocaleString()}
                             </span>
                           )}

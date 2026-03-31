@@ -3,6 +3,39 @@ const db = require('../config/database');
 
 const router = express.Router();
 
+const MAX_DESCRIPTION_LENGTH = 160;
+const MAX_ADDRESS_LENGTH = 150;
+
+const normalizeDescription = (rawDescription) => {
+  if (rawDescription === undefined || rawDescription === null) {
+    return null;
+  }
+
+  const normalized = String(rawDescription).replace(/\r\n/g, '\n');
+  if (normalized.length > MAX_DESCRIPTION_LENGTH) {
+    return { error: `Description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer` };
+  }
+
+  return normalized.length === 0 ? null : normalized;
+};
+
+const normalizeAddress = (rawAddress) => {
+  if (rawAddress === undefined || rawAddress === null) {
+    return { error: 'Address is required' };
+  }
+
+  const normalized = String(rawAddress).trim();
+  if (!normalized) {
+    return { error: 'Address is required' };
+  }
+
+  if (normalized.length > MAX_ADDRESS_LENGTH) {
+    return { error: `Address must be ${MAX_ADDRESS_LENGTH} characters or fewer` };
+  }
+
+  return normalized;
+};
+
 // Get all fields for a specific admin
 router.get('/:adminId', async (req, res) => {
   const { adminId } = req.params;
@@ -64,6 +97,16 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: name, category, address, city' });
   }
 
+  const normalizedDescription = normalizeDescription(description);
+  if (normalizedDescription && normalizedDescription.error) {
+    return res.status(400).json({ error: normalizedDescription.error });
+  }
+
+  const normalizedAddress = normalizeAddress(address);
+  if (normalizedAddress && normalizedAddress.error) {
+    return res.status(400).json({ error: normalizedAddress.error });
+  }
+
   try {
     // Verify admin exists
     const [admin] = await db.execute('SELECT id FROM admin WHERE id = ?', [adminId]);
@@ -73,7 +116,7 @@ router.post('/', async (req, res) => {
 
     const [result] = await db.execute(
       'INSERT INTO field (admin_id, name, category, description, address, city, image_url, is_active, google_maps_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [adminId, name, category, description || null, address, city, imageUrl || null, isActive !== false ? 1 : 0, googleMapsLink || null]
+      [adminId, name, category, normalizedDescription, normalizedAddress, city, imageUrl || null, isActive !== false ? 1 : 0, googleMapsLink || null]
     );
 
     res.status(201).json({
@@ -81,8 +124,8 @@ router.post('/', async (req, res) => {
       adminId,
       name,
       category,
-      description,
-      address,
+      description: normalizedDescription,
+      address: normalizedAddress,
       city,
       imageUrl,
       isActive: isActive !== false ? 1 : 0,
@@ -105,6 +148,16 @@ router.put('/:fieldId', async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: name, category, address, city' });
   }
 
+  const normalizedDescription = normalizeDescription(description);
+  if (normalizedDescription && normalizedDescription.error) {
+    return res.status(400).json({ error: normalizedDescription.error });
+  }
+
+  const normalizedAddress = normalizeAddress(address);
+  if (normalizedAddress && normalizedAddress.error) {
+    return res.status(400).json({ error: normalizedAddress.error });
+  }
+
   try {
     // Verify field belongs to admin
     const [field] = await db.execute('SELECT admin_id FROM field WHERE id = ?', [fieldId]);
@@ -118,7 +171,7 @@ router.put('/:fieldId', async (req, res) => {
 
     await db.execute(
       'UPDATE field SET name = ?, category = ?, description = ?, address = ?, city = ?, image_url = ?, is_active = ?, google_maps_link = ? WHERE id = ?',
-      [name, category, description || null, address, city, imageUrl || null, isActive !== undefined ? (isActive ? 1 : 0) : 1, googleMapsLink || null, fieldId]
+      [name, category, normalizedDescription, normalizedAddress, city, imageUrl || null, isActive !== undefined ? (isActive ? 1 : 0) : 1, googleMapsLink || null, fieldId]
     );
 
     res.json({ message: 'Field updated successfully' });
@@ -312,6 +365,33 @@ router.delete('/:fieldId/courts/:courtId', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to delete court' });
+  }
+});
+
+// Get all slots for a field with court names
+router.get('/:fieldId/slots', async (req, res) => {
+  const { fieldId } = req.params;
+  try {
+    const [slots] = await db.execute(
+      `SELECT 
+        fs.id,
+        fs.field_id,
+        fs.court_id,
+        c.name as court_name,
+        fs.start_time,
+        fs.end_time,
+        fs.price,
+        fs.is_booked
+      FROM field_slot fs
+      LEFT JOIN court c ON fs.court_id = c.id
+      WHERE fs.field_id = ?
+      ORDER BY fs.start_time ASC`,
+      [fieldId]
+    );
+    res.json(slots);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch slots' });
   }
 });
 

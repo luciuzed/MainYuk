@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { FiX, FiCheck, FiPlus, FiTrash2 } from 'react-icons/fi'
 import LoadingOverlay from '../components/LoadingOverlay'
+import ConfirmationModal from './ConfirmationModal'
+import SuccessMessage from '../components/SuccessMessage'
 
 const AdminManageSlot = ({ field, adminId, onClose }) => {
   const [courts, setCourts] = useState([])
@@ -14,23 +16,23 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
   const [recurrenceType, setRecurrenceType] = useState('specific') // 'specific', 'weekly', 'monthly'
   const [recurringDays, setRecurringDays] = useState([0,1,2,3,4,5,6]) // 0=Sun to 6=Sat
   const [recurringDuration, setRecurringDuration] = useState(7) // days
-  const [recurringStartDate, setRecurringStartDate] = useState('')
+  const [recurringStartDate, setRecurringStartDate] = useState(() => new Date().toISOString().split('T')[0])
   const [overrideDate, setOverrideDate] = useState('')
   const [overrideOpenTime, setOverrideOpenTime] = useState('')
   const [overrideCloseTime, setOverrideCloseTime] = useState('')
   const [overridePrice, setOverridePrice] = useState('')
   const [overrideList, setOverrideList] = useState([])
   const [viewSlotsForCourt, setViewSlotsForCourt] = useState(null)
-  const [viewDate, setViewDate] = useState('')
+  const [viewDate, setViewDate] = useState(() => new Date().toISOString().split('T')[0])
   const [viewSlots, setViewSlots] = useState([])
-  const [slotsModalTab, setSlotsModalTab] = useState('manage') // 'manage' or 'view'
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [success, setSuccess] = useState(null)
+  const [courtToDelete, setCourtToDelete] = useState(null)
+  const [isDeleteProcessing, setIsDeleteProcessing] = useState(false)
 
   const showSuccessMessage = (message) => {
-    setSuccess(message)
-    setTimeout(() => setSuccess(''), 3000)
+    setSuccess({ id: Date.now(), message })
   }
 
   const showErrorMessage = (message) => {
@@ -75,6 +77,18 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
     }
   }
 
+  const fetchSlotsOnly = async () => {
+    try {
+      const slotsResponse = await fetch(`http://localhost:5000/api/field/${field.id}/slots`)
+      if (slotsResponse.ok) {
+        const slotsData = await slotsResponse.json()
+        setViewSlots(slotsData)
+      }
+    } catch (err) {
+      console.error('Failed to fetch slots:', err)
+    }
+  }
+
   const handleAddCourt = async () => {
     if (!newCourtName.trim()) {
       showErrorMessage('Please enter court name')
@@ -109,11 +123,21 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
     }
   }
 
-  const handleDeleteCourt = async (courtId) => {
-    if (!window.confirm('Delete this court?')) return
+  const openDeleteCourtModal = (courtId) => {
+    setCourtToDelete(courtId)
+  }
+
+  const closeDeleteCourtModal = () => {
+    if (isDeleteProcessing) return
+    setCourtToDelete(null)
+  }
+
+  const handleDeleteCourt = async () => {
+    if (!courtToDelete) return
 
     try {
-      const response = await fetch(`http://localhost:5000/api/field/${field.id}/courts/${courtId}`, {
+      setIsDeleteProcessing(true)
+      const response = await fetch(`http://localhost:5000/api/field/${field.id}/courts/${courtToDelete}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminId })
@@ -121,6 +145,7 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
 
       if (response.ok) {
         showSuccessMessage('Court deleted')
+        setCourtToDelete(null)
         const refreshResponse = await fetch(`http://localhost:5000/api/field/${field.id}/courts`)
         if (refreshResponse.ok) {
           const data = await refreshResponse.json()
@@ -132,6 +157,8 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
       }
     } catch (err) {
       showErrorMessage('Cannot connect to server')
+    } finally {
+      setIsDeleteProcessing(false)
     }
   }
 
@@ -150,6 +177,16 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
   }
 
   const handleGenerateSlots = async () => {
+    if (!Number.isInteger(recurringDuration) || recurringDuration < 1) {
+      showErrorMessage('Please fill a valid duration')
+      return
+    }
+
+    if (recurringDuration > 365) {
+      showErrorMessage('Duration cannot be more than 365 days')
+      return
+    }
+
     if (!recurringStartDate) {
       showErrorMessage('Please select start date')
       return
@@ -193,6 +230,7 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
           setSlotSetupScreen('court-list')
           setRecurringDays([0,1,2,3,4,5,6])
           setRecurringDuration(7)
+          setRecurringStartDate(new Date().toISOString().split('T')[0])
         }, 2000)
       } else {
         const errorData = await response.json()
@@ -259,11 +297,20 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
     }
   }
 
+  const hasValidStartDate = Boolean(recurringStartDate)
+  const hasValidDuration = Number.isInteger(recurringDuration) && recurringDuration > 0 && recurringDuration <= 365
+  const canGenerateSlots = hasValidStartDate && hasValidDuration
+
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-lg p-8 max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <SuccessMessage
+        message={success?.message}
+        triggerKey={success?.id}
+        onClose={() => setSuccess(null)}
+      />
+      <div className="bg-white rounded-2xl shadow-lg p-8 max-w-[96vw] w-full mx-4 min-h-[75vh] max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Manage Slots: {field.name}</h2>
+          <h2 className="text-2xl font-bold">Manage Courts: {field.name}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition"
@@ -278,45 +325,9 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
             {error}
           </div>
         )}
-        {success && (
-          <div className="mb-6 inline-block rounded-full bg-green-50 border border-green-300 text-green-700 px-5 py-2 text-sm font-semibold shadow-sm">
-            {success}
-          </div>
-        )}
 
-        {/* TABS */}
-        <div className="flex gap-2 mb-6 border-b border-gray-200">
-          <button
-            onClick={() => {
-              setSlotsModalTab('manage')
-              setSlotSetupScreen('court-list')
-            }}
-            className={`px-4 py-3 text-sm font-semibold transition ${
-              slotsModalTab === 'manage'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Manage Courts & Schedule
-          </button>
-          <button
-            onClick={() => {
-              setSlotsModalTab('view')
-              setViewDate(new Date().toISOString().split('T')[0])
-            }}
-            className={`px-4 py-3 text-sm font-semibold transition ${
-              slotsModalTab === 'view'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            View Schedule Table
-          </button>
-        </div>
-
-        {/* MANAGE TAB */}
-        {slotsModalTab === 'manage' && (
-          <>
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          <div className="xl:col-span-5">
             {/* COURTS LIST VIEW */}
             {slotSetupScreen === 'court-list' && (
               <div className="space-y-4">
@@ -371,7 +382,7 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
                               Set Schedule
                             </button>
                             <button
-                              onClick={() => handleDeleteCourt(court.id)}
+                              onClick={() => openDeleteCourtModal(court.id)}
                               className="p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition"
                               title="Delete court"
                             >
@@ -389,8 +400,8 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
             {/* SET COURT HOURS VIEW */}
             {slotSetupScreen === 'set-hours' && selectedCourt && (
               <div className="space-y-6">
-                <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-                  <p className="text-sm text-blue-700"><strong>Court:</strong> {selectedCourt.name}</p>
+                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-300">
+                  <p className="text-sm text-green-700"><strong>Court:</strong> {selectedCourt.name}</p>
                 </div>
 
                 <div className="space-y-4">
@@ -416,100 +427,163 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold mb-2 text-gray-700">Price per Slot (Rp)</label>
-                    <input
-                      type="number"
-                      value={courtPrice}
-                      onChange={(e) => setCourtPrice(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
-                    />
+                    <label className="block text-sm font-semibold mb-2 text-gray-700">Price per Slot</label>
+                    <div className="w-full flex items-center gap-2">
+                      <span className="font-bold text-gray-700">Rp</span>
+                      <input
+                        type="number"
+                        value={courtPrice}
+                        onChange={(e) => setCourtPrice(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div className="bg-linear-to-r from-primary/10 to-blue-50 rounded-2xl p-4 border border-primary/20">
-                  <p className="text-sm text-gray-700"><strong>Note:</strong> System will automatically create 1-hour slots between these times. For example: 8:00-9:00, 9:00-10:00, etc.</p>
+                  <p className="text-sm text-gray-700">System will automatically create 1-hour slots between these times. For example: 8:00-9:00.</p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold mb-4 text-gray-700">Schedule Pattern</label>
                   <div className="space-y-4">
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
+                      <label
+                        className={`flex items-center gap-3 text-sm font-semibold mb-3 rounded-xl border px-4 py-3 cursor-pointer transition ${
+                          recurrenceType === 'specific'
+                            ? 'border-primary bg-primary/5 text-primary'
+                            : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
                         <input
                           type="radio"
                           checked={recurrenceType === 'specific'}
                           onChange={() => setRecurrenceType('specific')}
-                          className="w-4 h-4"
+                          className="sr-only"
                         />
-                        Generate once starting from:
+                        <span
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition ${
+                            recurrenceType === 'specific' ? 'border-primary' : 'border-gray-300'
+                          }`}
+                        >
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full transition ${
+                              recurrenceType === 'specific' ? 'bg-primary' : 'bg-transparent'
+                            }`}
+                          />
+                        </span>
+                        <span>Generate once starting from:</span>
                       </label>
-                      <input
-                        type="date"
-                        value={recurringStartDate}
-                        onChange={(e) => setRecurringStartDate(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
-                      />
+                      {recurrenceType === 'specific' && (
+                        <input
+                          type="date"
+                          value={recurringStartDate}
+                          onChange={(e) => setRecurringStartDate(e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
+                        />
+                      )}
                     </div>
 
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
+                      <label
+                        className={`flex items-center gap-3 text-sm font-semibold mb-3 rounded-xl border px-4 py-3 cursor-pointer transition ${
+                          recurrenceType === 'weekly'
+                            ? 'border-primary bg-primary/5 text-primary'
+                            : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
                         <input
                           type="radio"
                           checked={recurrenceType === 'weekly'}
                           onChange={() => setRecurrenceType('weekly')}
-                          className="w-4 h-4"
+                          className="sr-only"
                         />
-                        Repeat on specific days of week:
-                      </label>
-                      <div className="grid grid-cols-7 gap-2">
-                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => {
-                              const newDays = [...recurringDays]
-                              if (newDays.includes(idx)) {
-                                newDays.splice(newDays.indexOf(idx), 1)
-                              } else {
-                                newDays.push(idx)
-                              }
-                              setRecurringDays(newDays.sort())
-                            }}
-                            className={`px-2 py-2 rounded-lg text-xs font-semibold transition ${
-                              recurringDays.includes(idx)
-                                ? 'bg-primary text-white'
-                                : 'bg-gray-100 text-gray-700 border border-gray-200'
+                        <span
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition ${
+                            recurrenceType === 'weekly' ? 'border-primary' : 'border-gray-300'
+                          }`}
+                        >
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full transition ${
+                              recurrenceType === 'weekly' ? 'bg-primary' : 'bg-transparent'
                             }`}
-                          >
-                            {day}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-3">
-                        <label className="text-xs font-medium text-gray-600 block mb-2">Duration (days):</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="365"
-                          value={recurringDuration}
-                          onChange={(e) => setRecurringDuration(parseInt(e.target.value))}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2">Start date required below</p>
+                          />
+                        </span>
+                        <span>Repeat on specific days of week:</span>
+                      </label>
+                      {recurrenceType === 'weekly' && (
+                        <>
+                          <div className="grid grid-cols-7 gap-2">
+                            {[
+                              { label: 'Mon', value: 1 },
+                              { label: 'Tue', value: 2 },
+                              { label: 'Wed', value: 3 },
+                              { label: 'Thu', value: 4 },
+                              { label: 'Fri', value: 5 },
+                              { label: 'Sat', value: 6 },
+                              { label: 'Sun', value: 0 }
+                            ].map(({ label, value }) => (
+                              <button
+                                key={value}
+                                onClick={() => {
+                                  const newDays = [...recurringDays]
+                                  if (newDays.includes(value)) {
+                                    newDays.splice(newDays.indexOf(value), 1)
+                                  } else {
+                                    newDays.push(value)
+                                  }
+                                  setRecurringDays(newDays.sort())
+                                }}
+                                className={`px-2 py-2 rounded-lg text-xs font-semibold transition ${
+                                  recurringDays.includes(value)
+                                    ? 'bg-primary text-white'
+                                    : 'bg-gray-100 text-gray-700 border border-gray-200'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs font-medium text-gray-600 block mb-2">Duration (days):</label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="365"
+                                value={Number.isNaN(recurringDuration) ? '' : recurringDuration}
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                  if (value === '') {
+                                    setRecurringDuration(NaN)
+                                    return
+                                  }
+
+                                  const parsedValue = parseInt(value, 10)
+                                  if (Number.isNaN(parsedValue)) {
+                                    setRecurringDuration(NaN)
+                                    return
+                                  }
+
+                                  setRecurringDuration(Math.min(365, Math.max(1, parsedValue)))
+                                }}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-gray-700 block mb-2">Start date:</label>
+                              <input
+                                type="date"
+                                value={recurringStartDate}
+                                onChange={(e) => setRecurringStartDate(e.target.value)}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
-
-                  {recurrenceType === 'weekly' && (
-                    <div className="mt-4">
-                      <label className="block text-xs font-medium text-gray-700 mb-2">Start date:</label>
-                      <input
-                        type="date"
-                        value={recurringStartDate}
-                        onChange={(e) => setRecurringStartDate(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
-                      />
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex gap-3 justify-end pt-6 border-t border-gray-200">
@@ -524,30 +598,21 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
                   </button>
                   <button
                     onClick={handleGenerateSlots}
-                    className="px-6 py-2.5 bg-primary text-white rounded-full hover:opacity-90 transition font-semibold text-sm flex items-center gap-2"
+                    disabled={!canGenerateSlots}
+                    className={`px-6 py-2.5 rounded-full transition font-semibold text-sm flex items-center gap-2 ${
+                      canGenerateSlots
+                        ? 'bg-primary text-white hover:opacity-90'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
                   >
                     <FiCheck className="h-4 w-4" /> Generate Slots
                   </button>
                 </div>
               </div>
             )}
+          </div>
 
-            {!slotSetupScreen && (
-              <div className="flex gap-3 justify-end pt-6 border-t border-gray-200">
-                <button
-                  onClick={onClose}
-                  className="px-6 py-2.5 border border-gray-300 rounded-full hover:bg-gray-50 transition font-semibold text-sm text-gray-700"
-                >
-                  Close
-                </button>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* VIEW TAB */}
-        {slotsModalTab === 'view' && (
-          <div className="space-y-4">
+          <div className="xl:col-span-7 space-y-4">
             <div>
               <label className="block text-sm font-semibold mb-2 text-gray-700">Select Date to View</label>
               <input
@@ -558,131 +623,120 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
               />
             </div>
 
-            {/* SCHEDULE TABLE */}
-            <div className="mt-6 overflow-x-auto">
-              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                {/* Header */}
-                <div className="grid gap-0 border-b border-gray-200" style={{ gridTemplateColumns: `120px repeat(${[...new Set(viewSlots.filter(s => {
-                  const slotDate = new Date(s.start_time).toISOString().split('T')[0]
-                  return slotDate === viewDate
-                }).map(s => s.court_name || 'Court ' + (s.court_id || '1')))].length || 1}, 1fr)` }}>
-                  <div className="px-4 py-3 text-xs font-bold text-gray-700 bg-primary/5 border-r border-gray-200">
-                    Time
-                  </div>
-                  {[...new Set(viewSlots
-                    .filter(s => {
-                      const slotDate = new Date(s.start_time).toISOString().split('T')[0]
-                      return slotDate === viewDate
-                    })
-                    .map(s => s.court_name || 'Court ' + (s.court_id || '1')))
-                  ]
-                    .sort()
-                    .map((court) => (
-                      <div key={court} className="px-4 py-3 text-xs font-bold text-gray-700 bg-gray-50 border-r border-gray-200 text-center">
-                        {court}
+            <div>
+              <p className="text-xs font-bold mb-3 text-gray-700">Schedule Preview</p>
+
+              {courts.length === 0 || viewSlots.filter(s => {
+                const slotDate = new Date(s.start_time).toISOString().split('T')[0]
+                return slotDate === viewDate
+              }).length === 0 ? (
+                <div className="text-center py-12 bg-gray-100 rounded-2xl">
+                  <p className="text-gray-500 font-semibold">No slots available for {viewDate}</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <div
+                    className="gap-2 p-6 rounded-2xl"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: `80px repeat(${courts.length}, 1fr)`,
+                      backgroundColor: '#f2f2f2'
+                    }}
+                  >
+                    <div></div>
+
+                    {courts.map(court => (
+                      <div
+                        key={court.id}
+                        className="h-10 flex items-center justify-center font-bold text-[10px] sm:text-xs"
+                      >
+                        {court.name}
                       </div>
                     ))}
-                </div>
 
-                {/* Slots Grid */}
-                <div className="divide-y divide-gray-200">
-                  {[...new Set(viewSlots
-                    .filter(s => {
-                      const slotDate = new Date(s.start_time).toISOString().split('T')[0]
-                      return slotDate === viewDate
-                    })
-                    .map(s => {
-                      const startTime = new Date(s.start_time).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false
-                      })
-                      return startTime
-                    }))]
-                    .sort()
-                    .map(time => (
-                      <div key={time} className="grid gap-0 border-b border-gray-200" style={{ gridTemplateColumns: `120px repeat(${[...new Set(viewSlots.filter(s => {
-                        const slotDate = new Date(s.start_time).toISOString().split('T')[0]
-                        return slotDate === viewDate
-                      }).map(s => s.court_name || 'Court ' + (s.court_id || '1')))].length || 1}, 1fr)` }}>
-                        {/* Time Cell */}
-                        <div className="px-4 py-3 text-xs font-bold text-gray-900 bg-gray-50 border-r border-gray-200">
-                          {time}-{String(parseInt(time.split(':')[0])+1).padStart(2, '0')}:00
-                        </div>
-
-                        {/* Slot Cells */}
-                        {[...new Set(viewSlots
+                    {Array.from(
+                      new Set(
+                        viewSlots
                           .filter(s => {
                             const slotDate = new Date(s.start_time).toISOString().split('T')[0]
                             return slotDate === viewDate
                           })
-                          .map(s => s.court_name || 'Court ' + (s.court_id || '1')))
-                        ]
-                          .sort()
-                          .map(courtName => {
+                          .map(s => {
+                            const date = new Date(s.start_time)
+                            const hours = String(date.getHours()).padStart(2, '0')
+                            const minutes = String(date.getMinutes()).padStart(2, '0')
+                            return `${hours}:${minutes}`
+                          })
+                      )
+                    )
+                      .sort()
+                      .map(time => (
+                        <React.Fragment key={time}>
+                          <div className="h-12 sm:h-14 flex items-center text-[9px] sm:text-[11px] font-semibold leading-none">
+                            {time} - {String(parseInt(time.split(':')[0], 10) + 1).padStart(2, '0')}:00
+                          </div>
+
+                          {courts.map(court => {
                             const slot = viewSlots.find(s => {
                               const slotDate = new Date(s.start_time).toISOString().split('T')[0]
-                              const slotTime = new Date(s.start_time).toLocaleTimeString('en-US', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: false
-                              })
-                              return slotDate === viewDate && slotTime === time && (s.court_name || 'Court ' + (s.court_id || '1')) === courtName
+                              const date = new Date(s.start_time)
+                              const hours = String(date.getHours()).padStart(2, '0')
+                              const minutes = String(date.getMinutes()).padStart(2, '0')
+                              const slotTime = `${hours}:${minutes}`
+                              return slotDate === viewDate && slotTime === time && s.court_id === court.id
                             })
 
                             if (!slot) {
-                              return (
-                                <div key={courtName} className="px-3 py-3 border-r border-gray-200 bg-gray-50"></div>
-                              )
+                              return <div key={`${court.id}-${time}`}></div>
                             }
 
                             const isBooked = slot.is_booked === 1
 
                             return (
                               <div
-                                key={slot.id}
-                                className={`px-3 py-4 border-r border-gray-200 text-center ${
+                                key={`slot-${slot.id}`}
+                                className={`h-12 sm:h-14 rounded-xl border flex flex-col items-center justify-center transition p-2 text-center ${
                                   isBooked
-                                    ? 'bg-gray-100 opacity-50'
-                                    : 'bg-white'
+                                    ? 'bg-gray-300 text-gray-500 border-gray-300'
+                                    : 'bg-white text-gray-700 border-gray-300'
                                 }`}
                               >
-                                <p className="text-xs font-bold text-primary">Rp {parseInt(slot.price).toLocaleString()}</p>
-                                <p className={`text-xs mt-1 font-semibold ${isBooked ? 'text-gray-500' : 'text-green-700'}`}>
-                                  {isBooked ? 'Tidak Tersedia' : 'Tersedia'}
-                                </p>
+                                {isBooked ? (
+                                  <span className="text-[9px] sm:text-[10px] font-semibold">Unavailable</span>
+                                ) : (
+                                  <>
+                                    <span className="text-[9px] sm:text-[10px] font-bold text-primary">
+                                      Rp {parseInt(slot.price, 10).toLocaleString()}
+                                    </span>
+                                    <span className="text-[8px] sm:text-[9px] text-green-700 font-semibold">
+                                      Available
+                                    </span>
+                                  </>
+                                )}
                               </div>
                             )
                           })}
-                      </div>
-                    ))}
-                </div>
-
-                {viewSlots.filter(s => {
-                  const slotDate = new Date(s.start_time).toISOString().split('T')[0]
-                  return slotDate === viewDate
-                }).length === 0 && (
-                  <div className="p-8 text-center text-gray-500 text-sm">
-                    No slots created for {viewDate}
+                        </React.Fragment>
+                      ))}
                   </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-3 justify-end pt-6 border-t border-gray-200">
-              <button
-                onClick={onClose}
-                className="px-6 py-2.5 border border-gray-300 rounded-full hover:bg-gray-50 transition font-semibold text-sm text-gray-700"
-              >
-                Close
-              </button>
+                </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
+
       </div>
 
       {/* LOADING OVERLAY FOR SLOT GENERATION */}
       <LoadingOverlay show={slotsLoading} />
+
+      <ConfirmationModal
+        isOpen={courtToDelete !== null}
+        onClose={closeDeleteCourtModal}
+        onConfirm={handleDeleteCourt}
+        actionText="delete this court"
+        isProcessing={isDeleteProcessing}
+      />
     </div>
   )
 }

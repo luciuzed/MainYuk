@@ -13,7 +13,7 @@ const Navbar = () => {
   const dropdownRef = useRef(null)
   const location = useLocation()
 
-  // ✅ Update user/admin on route change
+  // Update user/admin on route change
   useEffect(() => {
     const userSession = Cookies.get('user_session')
     const adminSession = Cookies.get('admin_session')
@@ -30,7 +30,7 @@ const Navbar = () => {
     }
   }, [location])
 
-  // ✅ Close dropdown on outside click
+  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -99,7 +99,7 @@ const Navbar = () => {
         {user || admin ? (
           <div className="relative">
             
-            {/* ✅ Modern Icon Button */}
+            {/* Modern Icon Button */}
             <button
               onClick={() => setShowDropdown(!showDropdown)}
               className="flex items-center justify-center p-1 rounded-full hover:bg-gray-100 transition cursor-pointer"
