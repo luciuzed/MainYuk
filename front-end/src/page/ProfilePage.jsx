@@ -65,7 +65,7 @@ const BookingsList = ({ user }) => (
       <input 
         type="text" 
         placeholder="Cari berdasarkan ID Pesanan..." 
-        className="flex-1 min-w-[300px] bg-white border border-gray-100 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20"
+        className="flex-1 min-w-75 bg-white border border-gray-100 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20"
       />
       <select className="bg-white border border-gray-100 px-4 py-3 rounded-xl text-sm font-medium">
         <option>Upcoming</option>

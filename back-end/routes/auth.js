@@ -267,10 +267,9 @@ router.post('/verify-otp', async (req, res) => {
 
   delete otpStore[key];
 
-  // ✅ SEND THE DATA BACK
   res.json({ 
     success: true, 
-    user: userData, // This now contains id, name, phone, email, and role!
+    user: userData,
     redirect: entry.role === 'Business' ? '/dashboard' : '/venue' 
   });
 });

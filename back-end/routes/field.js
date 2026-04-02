@@ -11,7 +11,8 @@ const normalizeDescription = (rawDescription) => {
     return null;
   }
 
-  const normalized = String(rawDescription).replace(/\r\n/g, '\n');
+  // Preserve user-entered line breaks consistently across platforms.
+  const normalized = String(rawDescription).replace(/\r\n?/g, '\n');
   if (normalized.length > MAX_DESCRIPTION_LENGTH) {
     return { error: `Description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer` };
   }

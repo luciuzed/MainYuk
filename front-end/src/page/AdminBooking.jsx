@@ -181,164 +181,163 @@ const AdminBooking = () => {
                   <div
                     key={booking.id}
                     className={`bg-white rounded-2xl shadow-sm border transition hover:shadow-md overflow-hidden ${
-                      booking.status === 'confirmed' ? 'border-green-100' :
                       booking.status === 'pending' ? 'border-yellow-100' :
-                      'border-red-100'
+                      'border-gray-200'
                     }`}
                   >
-                    <div className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-gray-900">{booking.field_name}</h3>
-                          <p className="text-sm text-gray-600 mt-1">Booking ID: #{booking.id}</p>
-                        </div>
-                         <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full shrink-0 ${
-                            booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                            booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-red-100 text-red-700'
-                        }`}>
-                            {booking.status === 'confirmed' && (
-                              <span className="inline-flex items-center gap-1">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  className="w-3.5 h-3.5"
-                                  aria-hidden="true"
-                                >
-                                  <path
-                                    d="M5 13l4 4L19 7"
-                                    stroke="currentColor"
-                                    strokeWidth="3"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                                <span>Confirmed</span>
-                              </span>
-                            )}
-                            
-                            {booking.status === 'pending' && (
-                                <>
-                                    <svg 
-                                        xmlns="http://www.w3.org/2000/svg" 
-                                        width="12" 
-                                        height="12" 
-                                        viewBox="0 0 24 24" 
-                                        fill="none" 
-                                        stroke="currentColor" 
-                                        strokeWidth="2.5" 
-                                        strokeLinecap="round" 
-                                        strokeLinejoin="round"
-                                    >
-                                        <path d="M5 22h14" />
-                                        <path d="M5 2h14" />
-                                        <path d="M17 22c0-4-3-6-5-8-2 2-5 4-5 8" />
-                                        <path d="M17 2c0 4-3 6-5 8-2-2-5-4-5-8" />
-                                    </svg>
-                                    <span>Pending</span>
-                                </>
-                            )}
-
-                            {booking.status === 'cancelled' && (
-                              <span className="inline-flex items-center gap-1">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  className="w-3.5 h-3.5"
-                                  aria-hidden="true"
-                                >
-                                  <path
-                                    d="M6 6l12 12M18 6l-12 12"
-                                    stroke="currentColor"
-                                    strokeWidth="3"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                                <span>Cancelled</span>
-                              </span>
-                            )}
-                        </span>
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-gray-900">{booking.field_name}</h3>
+                        <p className="text-sm text-gray-600 mt-1">Booking ID: #{booking.id}</p>
                       </div>
+                        <span className={`inline-flex items-center gap-1.5 font-bold px-4 py-1.5 text-[10px] rounded-full shrink-0 uppercase tracking-widest ${
+                          booking.status === 'confirmed' ? 'bg-primary text-white' :
+                          booking.status === 'pending' ? 'bg-[#ff8904] text-white' :
+                          'bg-red-500 text-white'}`}>
 
-                      <div className="grid sm:grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-900 font-semibold mt-1">{booking.user_name}</p>
-                          <p className="text-gray-500 text-xs mt-1">{booking.user_email}</p>
-                          {booking.user_phone && (
-                            <p className="text-gray-500 text-xs">{booking.user_phone}</p>
+                          {booking.status === 'confirmed' && (
+                            <span className="inline-flex items-center gap-1">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                className="w-3.5 h-3.5"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  d="M5 13l4 4L19 7"
+                                  stroke="currentColor"
+                                  strokeWidth="3"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                              <span>Confirmed</span>
+                            </span>
                           )}
-                        </div>
-                       <div>
-  <p className="text-gray-600 font-medium mb-2">Time Slots</p>
-  <div className="flex flex-wrap gap-2">
-    {booking.time_slots.split(',').map((slot, index) => (
-      <span 
-        key={index} 
-        className="px-3 py-1 bg-gray-200 text-black text-xs font-mono rounded-full border border-gray-300"
-      >
-        {slot.trim()}
-      </span>
-    ))}
-  </div>
-</div>
-                        <div>
-                          <p className="text-gray-600 font-medium">Booking Date</p>
-                          <p className="text-gray-900 font-semibold mt-1">
-                            {new Date(booking.booking_date).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600 font-medium">Amount</p>
-                          <p className="text-primary font-bold text-lg mt-1">
-                            Rp {parseInt(booking.total_amount).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
+                          
+                          {booking.status === 'pending' && (
+                              <>
+                                  <svg 
+                                      xmlns="http://www.w3.org/2000/svg" 
+                                      width="12" 
+                                      height="12" 
+                                      viewBox="0 0 24 24" 
+                                      fill="none" 
+                                      stroke="currentColor" 
+                                      strokeWidth="2.5" 
+                                      strokeLinecap="round" 
+                                      strokeLinejoin="round"
+                                  >
+                                      <path d="M5 22h14" />
+                                      <path d="M5 2h14" />
+                                      <path d="M17 22c0-4-3-6-5-8-2 2-5 4-5 8" />
+                                      <path d="M17 2c0 4-3 6-5 8-2-2-5-4-5-8" />
+                                  </svg>
+                                  <span>Pending</span>
+                              </>
+                          )}
 
-                      {/* ACTION BUTTONS */}
-                      {booking.status === 'pending' && (
-                        <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-gray-200">
-                          <button
-                            onClick={() => openCancelModal(booking.id)}
-                            className="px-4 py-2 text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition inline-flex items-center gap-2"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              className="w-4 h-4"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="M6 6l12 12M18 6l-12 12"
-                                stroke="currentColor"
-                                strokeWidth="3"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                            <span>Cancel</span>
-                          </button>
-                          <button
-                            onClick={() => handleConfirmBooking(booking.id)}
-                            className="px-4 py-2 text-sm font-semibold text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition flex items-center gap-2"
-                          >
-                            <FiCheck size={16} />
-                            Confirm
-                          </button>
-                        </div>
-                      )}
+                          {booking.status === 'cancelled' && (
+                            <span className="inline-flex items-center gap-1">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                className="w-3.5 h-3.5"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  d="M6 6l12 12M18 6l-12 12"
+                                  stroke="currentColor"
+                                  strokeWidth="3"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                              <span>Cancelled</span>
+                            </span>
+                          )}
+                      </span>
                     </div>
+
+                    <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-900 font-semibold mt-1">{booking.user_name}</p>
+                        <p className="text-gray-500 text-xs mt-3">{booking.user_email}</p>
+                        {booking.user_phone && (
+                          <p className="text-gray-500 text-xs mt-1">{booking.user_phone}</p>
+                        )}
+                        </div>
+                        <div>
+                          <p className="text-gray-600 font-medium mb-2">Time Slots</p>
+                          <div className="flex flex-wrap gap-2">
+                            {booking.time_slots.split(',').map((slot, index) => (
+                              <span 
+                                key={index} 
+                                className="px-3 py-1 bg-gray-100 text-black text-xs font-mono rounded-full border border-gray-200"
+                              >
+                                {slot.trim()}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      <div>
+                        <p className="text-gray-600 font-medium">Booking Date</p>
+                        <p className="text-gray-900 font-semibold mt-1">
+                          {new Date(booking.booking_date).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600 font-medium">Amount</p>
+                        <p className="text-primary font-bold text-lg mt-1">
+                          Rp {parseInt(booking.total_amount).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* ACTION BUTTONS */}
+                    {booking.status === 'pending' && (
+                      <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-gray-200">
+                        <button
+                          onClick={() => openCancelModal(booking.id)}
+                          className="px-4 py-2 text-sm font-bold text-white bg-red-500 rounded-xl hover:bg-red-700 transition inline-flex items-center gap-2"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            className="w-4 h-4"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M6 6l12 12M18 6l-12 12"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          <span>Cancel</span>
+                        </button>
+                        <button
+                          onClick={() => handleConfirmBooking(booking.id)}
+                          className="px-4 py-2 text-sm font-bold text-white bg-primary rounded-xl hover:bg-primary transition flex items-center gap-2"
+                        >
+                          <FiCheck size={16} />
+                          Confirm
+                        </button>
+                      </div>
+                    )}
                   </div>
+                </div>
                 ))}
               </div>
             )}

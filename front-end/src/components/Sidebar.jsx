@@ -30,7 +30,7 @@ const Sidebar = ({ activeTabId, adminName, adminEmail, handleLogout, tabItems })
       </nav>
 
       <div className="mt-auto px-3 pb-6">
-        <div className="flex items-center gap-3 rounded-xl bg-white/15 px-4 py-4 backdrop-blur-sm border border-white/20">
+        <div className="flex items-center gap-3 rounded-xl bg-white/15 px-4 py-4 backdrop-blur-sm">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/25">
             <FiUser className="h-5 w-5 text-white" />
           </div>
@@ -42,7 +42,7 @@ const Sidebar = ({ activeTabId, adminName, adminEmail, handleLogout, tabItems })
 
         <button
           onClick={handleLogout}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-3 text-sm font-semibold text-white/90 transition hover:bg-white/20 hover:text-white"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-white/15 px-4 py-3 text-sm font-semibold text-white/90 transition hover:bg-white/20 hover:text-white"
         >
           <FiLogOut className="h-4 w-4" />
           Log out

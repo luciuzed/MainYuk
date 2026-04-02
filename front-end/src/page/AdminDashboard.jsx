@@ -1,10 +1,82 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Cookies from 'js-cookie'
-import { FiBarChart2, FiGrid, FiPlus, FiEdit2, FiTrash2, FiX, FiCheck, FiTrendingUp, FiCalendar } from 'react-icons/fi'
+import { FiBarChart2, FiCalendar, FiGrid, FiTrendingUp } from 'react-icons/fi'
 import LoadingOverlay from '../components/LoadingOverlay'
 import Sidebar from '../components/Sidebar'
 import SuccessMessage from '../components/SuccessMessage'
+
+const revenueColors = [
+  'rgba(0, 153, 102, 0.92)',
+  'rgba(0, 153, 102, 0.78)',
+  'rgba(0, 153, 102, 0.64)',
+  'rgba(0, 153, 102, 0.50)',
+  'rgba(0, 153, 102, 0.38)',
+  'rgba(0, 153, 102, 0.28)',
+  'rgba(0, 153, 102, 0.18)',
+]
+
+const pieViewBoxSize = 260
+
+const currencyFormatter = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  maximumFractionDigits: 0,
+})
+
+const formatCurrency = (value) => currencyFormatter.format(Number(value) || 0)
+
+const formatPercentage = (value) => {
+  if (!Number.isFinite(value)) {
+    return '0%'
+  }
+
+  const rounded = Math.round(value * 10) / 10
+  return Number.isInteger(rounded) ? `${rounded.toFixed(0)}%` : `${rounded.toFixed(1)}%`
+}
+
+const polarToCartesian = (centerX, centerY, radius, angleInDegrees) => {
+  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180
+
+  return {
+    x: centerX + radius * Math.cos(angleInRadians),
+    y: centerY + radius * Math.sin(angleInRadians),
+  }
+}
+
+const createPieSlicePath = (centerX, centerY, radius, startAngle, endAngle) => {
+  const sweepAngle = endAngle - startAngle
+
+  if (sweepAngle >= 360) {
+    const topPoint = polarToCartesian(centerX, centerY, radius, startAngle)
+    const oppositePoint = polarToCartesian(centerX, centerY, radius, startAngle + 180)
+
+    return [
+      `M ${topPoint.x} ${topPoint.y}`,
+      `A ${radius} ${radius} 0 1 1 ${oppositePoint.x} ${oppositePoint.y}`,
+      `A ${radius} ${radius} 0 1 1 ${topPoint.x} ${topPoint.y}`,
+      'Z',
+    ].join(' ')
+  }
+
+  const start = polarToCartesian(centerX, centerY, radius, endAngle)
+  const end = polarToCartesian(centerX, centerY, radius, startAngle)
+  const largeArcFlag = sweepAngle > 180 ? '1' : '0'
+
+  return [
+    `M ${centerX} ${centerY}`,
+    `L ${start.x} ${start.y}`,
+    `A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`,
+    'Z',
+  ].join(' ')
+}
+
+const getTooltipPosition = (centerX, centerY, radius, startAngle, endAngle) => {
+  const midAngle = (startAngle + endAngle) / 2
+  const tooltipRadius = radius * 0.68
+
+  return polarToCartesian(centerX, centerY, tooltipRadius, midAngle)
+}
 
 const AdminDashboard = () => {
   const navigate = useNavigate()
@@ -14,6 +86,8 @@ const AdminDashboard = () => {
   const [fields, setFields] = useState([])
   const [bookings, setBookings] = useState([])
   const [weeklyPerformance, setWeeklyPerformance] = useState([])
+  const [revenueSummary, setRevenueSummary] = useState({ totalRevenue: 0, venues: [] })
+  const [hoveredRevenueVenueId, setHoveredRevenueVenueId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(null)
@@ -46,6 +120,7 @@ const AdminDashboard = () => {
       fetchFields()
       fetchBookings()
       fetchWeeklyPerformance()
+      fetchRevenueSummary()
     }
   }, [adminId])
 
@@ -98,6 +173,23 @@ const AdminDashboard = () => {
     }
   }
 
+  const fetchRevenueSummary = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/bookings/admin/${adminId}/revenue`)
+      if (response.ok) {
+        const data = await response.json()
+        setRevenueSummary({
+          totalRevenue: Number(data.totalRevenue) || 0,
+          venues: Array.isArray(data.venues) ? data.venues : [],
+        })
+      } else {
+        console.error('Failed to fetch revenue summary:', response.status)
+      }
+    } catch (err) {
+      console.error('Failed to fetch revenue summary:', err)
+    }
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('adminId')
     Cookies.remove('admin_session')
@@ -114,7 +206,55 @@ const AdminDashboard = () => {
   const weeklySlotCounts = dayLabels.map((_, index) => weeklyPerformance[index] || 0)
 
   const highestDayCount = Math.max(...weeklySlotCounts, 0)
-  const chartMax = Math.max(1, highestDayCount)
+  const chartMax = Math.max(2, Math.ceil(highestDayCount / 2) * 2)
+  const chartMid = chartMax / 2
+
+  const revenueVenues = revenueSummary.venues.length > 0
+    ? revenueSummary.venues
+    : fields.map((field) => ({
+        id: field.id,
+        name: field.name,
+        revenue: 0,
+        percentage: 0,
+      }))
+
+  const totalRevenue = Number(revenueSummary.totalRevenue) || 0
+
+  const revenueVenuesWithColors = revenueVenues.map((venue, index) => ({
+    ...venue,
+    color: revenueColors[index % revenueColors.length],
+  }))
+
+  const revenueSlices = revenueVenuesWithColors
+    .filter((venue) => Number(venue.revenue) > 0)
+    .reduce((slices, venue, index) => {
+      const revenueValue = Number(venue.revenue) || 0
+      const sliceAngle = totalRevenue > 0 ? (revenueValue / totalRevenue) * 360 : 0
+      const startAngle = slices.length === 0 ? -90 : slices[slices.length - 1].endAngle
+      const endAngle = startAngle + sliceAngle
+
+      slices.push({
+        ...venue,
+        revenue: revenueValue,
+        percentage: totalRevenue > 0 ? (revenueValue / totalRevenue) * 100 : 0,
+        color: revenueColors[index % revenueColors.length],
+        startAngle,
+        endAngle,
+      })
+
+      return slices
+    }, [])
+
+  const hoveredRevenueSlice = revenueSlices.find((slice) => slice.id === hoveredRevenueVenueId) || null
+  const hoveredRevenueTooltipPosition = hoveredRevenueSlice
+    ? getTooltipPosition(
+        pieViewBoxSize / 2,
+        pieViewBoxSize / 2,
+        98,
+        hoveredRevenueSlice.startAngle,
+        hoveredRevenueSlice.endAngle
+      )
+    : null
 
   const tabItems = [
     { id: 'dashboard', label: 'Dashboard', icon: FiBarChart2, path: '/dashboard' },
@@ -228,16 +368,16 @@ const AdminDashboard = () => {
                     <span className="text-xs text-gray-400">Booked Slots This Week</span>
                   </div>
                   <div className="flex-1 min-h-0 rounded-xl bg-gray-50 border border-gray-100 p-4">
-                    <div className="h-full flex">
-                      <div className="w-10 relative shrink-0 mr-2">
-                        <div className="absolute top-2 bottom-6 right-0 w-px bg-gray-300" />
-                        <span className="absolute top-0 right-2 text-[10px] text-gray-400 font-semibold">{chartMax}</span>
-                        <span className="absolute top-1/2 -translate-y-1/2 right-2 text-[10px] text-gray-400 font-semibold">{Math.round(chartMax / 2)}</span>
-                        <span className="absolute bottom-5 right-2 text-[10px] text-gray-400 font-semibold">0</span>
+                    <div className="grid h-full min-h-0 grid-cols-[2.5rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto]">
+                      <div className="relative min-h-0">
+                        <div className="absolute top-0 bottom-2 right-0 w-px bg-gray-300" />
+                        <span className="absolute top-0 right-2 text-[10px] text-gray-400 font-semibold -translate-y-1/2">{chartMax}</span>
+                        <span className="absolute top-1/2 -translate-y-1/2 right-2 text-[10px] text-gray-400 font-semibold">{chartMid}</span>
+                        <span className="absolute bottom-2 right-2 text-[10px] text-gray-400 font-semibold translate-y-1/2">0</span>
                       </div>
 
-                      <div className="flex-1 min-w-0 flex flex-col">
-                        <div className="grid grid-cols-7 gap-2 flex-1">
+                      <div className="relative min-h-0 pb-2">
+                        <div className="grid h-full grid-cols-7 gap-2 items-end">
                           {weeklySlotCounts.map((count, index) => {
                             const heightPercent = (count / chartMax) * 100
                             const barHeight = count === 0 ? 0 : Math.max(6, heightPercent)
@@ -254,41 +394,126 @@ const AdminDashboard = () => {
                           })}
                         </div>
 
-                        <div className="h-px bg-gray-300" />
+                        <div className="absolute inset-x-0 bottom-2 h-px bg-gray-300" />
+                      </div>
 
-                        <div className="grid grid-cols-7 gap-2 pt-2">
-                          {weeklySlotCounts.map((count, index) => (
-                            <div key={`${dayLabels[index]}-label`} className="flex flex-col items-center">
-                              <span className="text-[10px] text-gray-500 font-bold leading-none">{dayLabels[index]}</span>
-                              <span className="text-[10px] text-gray-500 font-semibold leading-none mt-1">{count}</span>
-                            </div>
-                          ))}
-                        </div>
+                      <div />
+
+                      <div className="grid grid-cols-7 gap-2 pt-2">
+                        {weeklySlotCounts.map((count, index) => (
+                          <div key={`${dayLabels[index]}-label`} className="flex flex-col items-center">
+                            <span className="text-[10px] text-gray-500 font-bold leading-none">{dayLabels[index]}</span>
+                            <span className="text-[10px] text-gray-500 font-semibold leading-none mt-1">{count}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Quick Actions */}
-              <div className="rounded-2xl bg-white p-6 border border-gray-100 shadow-sm">
+              {/* Revenue Overview */}
+              <div className="rounded-2xl bg-white p-6 border border-gray-100 shadow-sm min-h-128 flex flex-col">
                 <div className="flex items-center gap-2 mb-4">
-                  <FiPlus className="text-primary" />
-                  <h3 className="text-lg font-bold text-gray-900">Quick Actions</h3>
+                  <FiTrendingUp className="text-primary" />
+                  <h3 className="text-lg font-bold text-gray-900">Revenue</h3>
                 </div>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => navigate('/field')}
-                    className="w-full text-left px-4 py-3 rounded-lg bg-white hover:bg-primary/5 transition border border-gray-100 text-sm font-medium text-gray-900"
-                  >
-                    Add New Venue
-                  </button>
-                  <button
-                    onClick={() => navigate('/field')}
-                    className="w-full text-left px-4 py-3 rounded-lg bg-white hover:bg-primary/5 transition border border-gray-100 text-sm font-medium text-gray-900"
-                  >
-                    View All Venues
-                  </button>
+
+                <div className="flex-1 grid gap-6 lg:grid-cols-[3fr_1fr] items-center">
+                  <div className="relative flex items-center justify-center">
+                    <div className="relative w-full max-w-105 aspect-square">
+                      {revenueSlices.length > 0 ? (
+                        <>
+                          <svg
+                            viewBox={`0 0 ${pieViewBoxSize} ${pieViewBoxSize}`}
+                            className="h-full w-full overflow-visible"
+                            role="img"
+                            aria-label="Revenue distribution pie chart"
+                          >
+                            <circle
+                              cx={pieViewBoxSize / 2}
+                              cy={pieViewBoxSize / 2}
+                              r="98"
+                              fill="#f3f7f5"
+                            />
+                            {revenueSlices.map((slice) => (
+                              <path
+                                key={slice.id}
+                                d={createPieSlicePath(pieViewBoxSize / 2, pieViewBoxSize / 2, 98, slice.startAngle, slice.endAngle)}
+                                fill={slice.color}
+                                stroke="#ffffff"
+                                strokeWidth="2"
+                                className="cursor-pointer transition-all duration-200 hover:opacity-95"
+                                onMouseEnter={() => setHoveredRevenueVenueId(slice.id)}
+                                onMouseLeave={() => setHoveredRevenueVenueId(null)}
+                              />
+                            ))}
+                          </svg>
+
+                          {hoveredRevenueSlice && (
+                            <div
+                              className="pointer-events-none absolute z-10 rounded-2xl bg-white px-3 py-2 shadow-lg border border-green-100 transition-all duration-200"
+                              style={{
+                                left: `${(hoveredRevenueTooltipPosition.x / pieViewBoxSize) * 100}%`,
+                                top: `${(hoveredRevenueTooltipPosition.y / pieViewBoxSize) * 100}%`,
+                                transform: 'translate(-50%, -50%)',
+                              }}
+                            >
+                              <span className="text-sm font-bold text-primary">
+                                {formatPercentage(hoveredRevenueSlice.percentage)}
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="h-full w-full rounded-full border border-dashed border-green-100 bg-green-50/50 flex items-center justify-center text-center px-8">
+                          <div>
+                            <p className="text-sm font-bold text-gray-700">No confirmed revenue yet</p>
+                            <p className="text-xs text-gray-400 mt-1">Once bookings are confirmed, the chart will update automatically.</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex h-full flex-col justify-center">
+                    <div className="space-y-3">
+                      {revenueVenuesWithColors.length > 0 ? (
+                        revenueVenuesWithColors.map((venue) => {
+                          const percentage = totalRevenue > 0 ? (Number(venue.revenue) / totalRevenue) * 100 : 0
+
+                          return (
+                            <div
+                              key={venue.id}
+                              className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2"
+                            >
+                              <span
+                                className="h-3.5 w-3.5 rounded-sm shrink-0"
+                                style={{ backgroundColor: venue.color }}
+                                aria-hidden="true"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-gray-900 truncate">{venue.name}</p>
+                                <p className="text-[11px] text-gray-500">{formatCurrency(venue.revenue)}</p>
+                              </div>
+                              <span className="text-sm font-bold text-primary">
+                                {formatPercentage(percentage)}
+                              </span>
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+                          No venues found for this business.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-6 rounded-xl border border-gray-100 bg-white px-4 py-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Total Revenue</p>
+                      <p className="mt-2 text-2xl font-bold text-primary">{formatCurrency(totalRevenue)}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -321,7 +546,7 @@ const AdminDashboard = () => {
                           </div>
                         </div>
                       </div>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${field.is_active === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      <span className={`inline-flex items-center gap-1.5 font-bold px-3 py-1.5 text-[10px] rounded-full uppercase tracking-widest ${field.is_active === 1 ? 'text-white bg-primary' : 'bg-red-500 text-white'}`}>
                         {field.is_active === 1 ? (
                           <span className="inline-flex items-center gap-1">
                             <svg

@@ -12,6 +12,25 @@ const formatDateLocal = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const getConfirmedRevenueForField = async (fieldId) => {
+  const [rows] = await db.execute(
+    `
+    SELECT COALESCE(SUM(booking_totals.total_amount), 0) AS revenue
+    FROM (
+      SELECT DISTINCT b.id, b.total_amount
+      FROM booking b
+      JOIN booking_slot bs ON b.id = bs.booking_id
+      JOIN field_slot fs ON bs.slot_id = fs.id
+      WHERE fs.field_id = ?
+        AND b.status = 'confirmed'
+    ) AS booking_totals
+    `,
+    [fieldId]
+  );
+
+  return Number(rows[0]?.revenue) || 0;
+};
+
 // ============ CREATE BOOKING ============
 // POST /api/bookings
 router.post('/', async (req, res) => {
@@ -280,6 +299,54 @@ router.get('/admin/:adminId/performance', async (req, res) => {
     console.error('Fetch admin weekly performance error:', err);
     res.status(500).json({
       error: 'Failed to fetch weekly performance',
+      details: err.message,
+    });
+  }
+});
+
+// ============ GET REVENUE FOR AN ADMIN (All their fields' revenue) ============
+// GET /api/bookings/admin/:adminId/revenue
+router.get('/admin/:adminId/revenue', async (req, res) => {
+  const { adminId } = req.params;
+
+  try {
+    const [fields] = await db.execute(
+      `
+      SELECT id, name
+      FROM field
+      WHERE admin_id = ?
+      ORDER BY is_active DESC, created_at DESC
+      `,
+      [adminId]
+    );
+
+    let totalRevenue = 0;
+    const venues = [];
+
+    for (const field of fields) {
+      const revenue = await getConfirmedRevenueForField(field.id);
+      totalRevenue += revenue;
+
+      venues.push({
+        id: field.id,
+        name: field.name,
+        revenue,
+      });
+    }
+
+    const revenueByVenue = venues.map((venue) => ({
+      ...venue,
+      percentage: totalRevenue > 0 ? Number(((venue.revenue / totalRevenue) * 100).toFixed(2)) : 0,
+    }));
+
+    res.json({
+      totalRevenue,
+      venues: revenueByVenue,
+    });
+  } catch (err) {
+    console.error('Fetch admin revenue error:', err);
+    res.status(500).json({
+      error: 'Failed to fetch revenue',
       details: err.message,
     });
   }

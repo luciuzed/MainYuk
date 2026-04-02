@@ -189,7 +189,7 @@ Total: Rp ${totalPrice.toLocaleString()}`;
               <span className="min-w-0 wrap-anywhere">{field.address}</span>
             </button>
 
-            <div className="mt-3 flex flex-wrap gap-3">
+            <div className="mt-3 flex flex-wrap gap-2">
               <div className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
                 {field.category}
               </div>
@@ -202,7 +202,7 @@ Total: Rp ${totalPrice.toLocaleString()}`;
           </div>
 
           <div className="p-6 rounded-2xl" style={{backgroundColor: '#f2f2f2'}}>
-            <p className="text-sm text-gray-500 whitespace-pre-line wrap-anywhere">
+            <p className="text-sm text-gray-500 whitespace-pre-wrap wrap-break-word">
               {field.description || "No description available."}
             </p>
           </div>
@@ -333,7 +333,7 @@ Total: Rp ${totalPrice.toLocaleString()}`;
 
         {/* RIGHT SECTION */}
         <div>
-          <div className="sticky top-8 bg-white p-6 rounded-3xl shadow-2xl shadow-black/15 ring-1 ring-black/3 space-y-6">
+          <div className="sticky top-8 bg-white p-6 rounded-3xl shadow-2xl shadow-black/15 ring-3 ring-black/3 space-y-6">
             <div>
               <p className="text-sm text-gray-400">Price per slot</p>
               <p className="text-xl font-black">
@@ -351,7 +351,7 @@ Total: Rp ${totalPrice.toLocaleString()}`;
               </p>
             </div>
 
-            <div className="border-t pt-4">
+            <div className="border-t border-gray-300 pt-4">
               <p className="text-sm text-gray-400">Total</p>
               <p className="text-3xl font-black">
                 Rp {totalPrice.toLocaleString()}
