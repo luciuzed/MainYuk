@@ -38,7 +38,7 @@ router.post('/register', async (req, res) => {
       }
     };
 
-    await sendOtpEmail(email, otp).catch((e) => {
+    void sendOtpEmail(email, otp).catch((e) => {
       console.error('Email send failed', e);
     });
 
@@ -79,7 +79,7 @@ router.post('/register-business', async (req, res) => {
     console.log(`[REGISTER-BUSINESS] Generated OTP for ${email} with key: ${key}, OTP: ${otp}`);
     console.log(`[REGISTER-BUSINESS] OTP expires at: ${new Date(otpStore[key].expiresAt)}`);
 
-    await sendOtpEmail(email, otp).catch((e) => {
+    void sendOtpEmail(email, otp).catch((e) => {
       console.error('Email send failed', e);
     });
 
@@ -113,7 +113,7 @@ router.post('/login', async (req, res) => {
         role: 'User',
       };
 
-      await sendOtpEmail(email, otp).catch((e) => {
+      void sendOtpEmail(email, otp).catch((e) => {
         console.error('Email send failed', e);
       });
 
@@ -148,7 +148,7 @@ router.post('/login-business', async (req, res) => {
         role: 'Business',
       };
 
-      await sendOtpEmail(email, otp).catch((e) => {
+      void sendOtpEmail(email, otp).catch((e) => {
         console.error('Email send failed', e);
       });
 
@@ -183,10 +183,11 @@ router.post('/resend-otp', async (req, res) => {
   };
 
   try {
-    await sendOtpEmail(email, otp);
+    void sendOtpEmail(email, otp).catch((e) => {
+      console.error('Resend OTP email failed', e);
+    });
     return res.json({ message: 'OTP resent', otpNeeded: true });
   } catch (err) {
-    console.error('Resend OTP email failed', err);
     return res.status(500).json({ error: 'Failed to resend OTP' });
   }
 });

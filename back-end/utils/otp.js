@@ -5,10 +5,16 @@ const otpStore = {};
 const generateOtp = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 const sendOtpEmail = async (recipient, otpCode) => {
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: false,
+    port: smtpPort,
+    secure: smtpPort === 465,
+    requireTLS: smtpPort === 587,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -16,7 +22,7 @@ const sendOtpEmail = async (recipient, otpCode) => {
   });
 
   const info = await transporter.sendMail({
-    from: `"MainYuk Support" <${process.env.EMAIL_USER}>`,
+    from: `"MainYuk Support" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
     to: recipient,
     subject: `Your Verification Code: ${otpCode}`,
     html: `
