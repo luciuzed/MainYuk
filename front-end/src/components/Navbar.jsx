@@ -67,7 +67,7 @@ const Navbar = () => {
             {({ isActive }) => (
               <>
                 Home
-                <span className={`absolute left-1/2 -translate-x-1/2 -bottom-2 h-[2px] bg-[#009966] transition-all duration-300 ${isActive ? 'w-3/4' : 'w-0'}`} />
+                <span className={`absolute left-1/2 -translate-x-1/2 -bottom-2 h-0.5 bg-primary transition-all duration-300 ${isActive ? 'w-3/4' : 'w-0'}`} />
               </>
             )}
           </NavLink>
@@ -77,7 +77,7 @@ const Navbar = () => {
             {({ isActive }) => (
               <>
                 Venue
-                <span className={`absolute left-1/2 -translate-x-1/2 -bottom-2 h-[2px] bg-[#009966] transition-all duration-300 ${isActive ? 'w-3/4' : 'w-0'}`} />
+                <span className={`absolute left-1/2 -translate-x-1/2 -bottom-2 h-0.5 bg-primary transition-all duration-300 ${isActive ? 'w-3/4' : 'w-0'}`} />
               </>
             )}
           </NavLink>
@@ -87,7 +87,7 @@ const Navbar = () => {
             {({ isActive }) => (
               <>
                 Contact
-                <span className={`absolute left-1/2 -translate-x-1/2 -bottom-2 h-[2px] bg-[#009966] transition-all duration-300 ${isActive ? 'w-3/4' : 'w-0'}`} />
+                <span className={`absolute left-1/2 -translate-x-1/2 -bottom-2 h-0.5 bg-primary transition-all duration-300 ${isActive ? 'w-3/4' : 'w-0'}`} />
               </>
             )}
           </NavLink>

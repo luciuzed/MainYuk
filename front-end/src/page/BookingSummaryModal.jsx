@@ -151,7 +151,7 @@ const BookingSummaryModal = ({
 
           <div>
             <p className="text-sm font-bold text-gray-800 mb-4">Field & Date</p>
-            <div className="bg-gray-100 rounded-2xl p-4">
+            <div className="bg-gray-50 rounded-2xl p-4">
               <p className="text-sm font-bold text-gray-800">{field.name}</p>
               <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
                 <FaCalendarAlt size={12} /> {selectedDate}
@@ -176,7 +176,7 @@ const BookingSummaryModal = ({
                   });
 
                   return (
-                    <div key={slot.id} className="flex justify-between items-center bg-gray-100 p-3 rounded-lg">
+                    <div key={slot.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
                       <div className="flex gap-2 items-center flex-1">
                         <FaClock size={12} className="text-gray-400" />
                         <span className="text-sm font-medium text-gray-800">

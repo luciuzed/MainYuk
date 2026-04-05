@@ -73,8 +73,10 @@ router.post('/', async (req, res) => {
       return res.status(409).json({ error: 'One or more selected slots are already booked' });
     }
 
-    // Calculate total amount
-    const totalAmount = slots.reduce((sum, slot) => sum + parseFloat(slot.price), 0);
+    // Keep backend total in sync with frontend pricing summary.
+    const serviceFee = 1000;
+    const slotsTotal = slots.reduce((sum, slot) => sum + parseFloat(slot.price), 0);
+    const totalAmount = slotsTotal + serviceFee;
 
     // Step 1: Insert booking record into booking table with 'unpaid' status
     const [bookingResult] = await connection.execute(
@@ -120,6 +122,8 @@ router.post('/', async (req, res) => {
       userId,
       fieldId,
       status: 'unpaid',
+      serviceFee,
+      slotsTotal,
       totalAmount,
       selectedSlots: selectedSlotIds,
       message: 'Booking created successfully. Proceeding to payment.'

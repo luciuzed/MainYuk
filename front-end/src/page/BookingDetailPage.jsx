@@ -80,7 +80,7 @@ const BookingDetailPage = () => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
   };
 
-  // Filter slots by selected date (both booked and available)
+  // Filter slots by selected date
   const selectedDateSlots = slots.filter(slot => {
     const slotDate = new Date(slot.start_time).toISOString().split('T')[0];
     return slotDate === selectedDate;

@@ -303,7 +303,7 @@ const Payment = () => {
 
           <div className="bg-white rounded-3xl p-5 shadow-2xl border border-gray-100 flex flex-col">
             <p className="text-sm font-bold text-gray-700 mb-3 text-center uppercase tracking-wide">QRIS</p>
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 flex-1 flex items-center justify-center">
+            <div className="rounded-2xl border border-gray-100 p-3 flex-1 flex items-center justify-center">
               <img
                 src={qrImg}
                 alt="QRIS code"
