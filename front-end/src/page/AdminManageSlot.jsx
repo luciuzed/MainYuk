@@ -5,6 +5,17 @@ import ConfirmationModal from './ConfirmationModal'
 import SuccessMessage from '../components/SuccessMessage'
 import { apiUrl } from '../config/api'
 
+const getLocalToday = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const getSlotDate = (dateTimeValue) => String(dateTimeValue || '').slice(0, 10)
+const getSlotTime = (dateTimeValue) => String(dateTimeValue || '').slice(11, 16)
+
 const AdminManageSlot = ({ field, adminId, onClose }) => {
   const [courts, setCourts] = useState([])
   const [newCourtName, setNewCourtName] = useState('')
@@ -17,14 +28,14 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
   const [recurrenceType, setRecurrenceType] = useState('specific') // 'specific', 'weekly', 'monthly'
   const [recurringDays, setRecurringDays] = useState([0,1,2,3,4,5,6]) // 0=Sun to 6=Sat
   const [recurringDuration, setRecurringDuration] = useState(7) // days
-  const [recurringStartDate, setRecurringStartDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [recurringStartDate, setRecurringStartDate] = useState(getLocalToday)
   const [overrideDate, setOverrideDate] = useState('')
   const [overrideOpenTime, setOverrideOpenTime] = useState('')
   const [overrideCloseTime, setOverrideCloseTime] = useState('')
   const [overridePrice, setOverridePrice] = useState('')
   const [overrideList, setOverrideList] = useState([])
   const [viewSlotsForCourt, setViewSlotsForCourt] = useState(null)
-  const [viewDate, setViewDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [viewDate, setViewDate] = useState(getLocalToday)
   const [viewSlots, setViewSlots] = useState([])
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -231,7 +242,7 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
           setSlotSetupScreen('court-list')
           setRecurringDays([0,1,2,3,4,5,6])
           setRecurringDuration(7)
-          setRecurringStartDate(new Date().toISOString().split('T')[0])
+          setRecurringStartDate(getLocalToday())
         }, 2000)
       } else {
         const errorData = await response.json()
@@ -284,7 +295,7 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
     setViewSlotsForCourt(court)
     setSlotSetupScreen('view-grid')
     // Set default date to today
-    const today = new Date().toISOString().split('T')[0]
+    const today = getLocalToday()
     setViewDate(today)
 
     try {
@@ -628,7 +639,7 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
               <p className="text-xs font-bold mb-3 text-gray-700">Schedule Preview</p>
 
               {courts.length === 0 || viewSlots.filter(s => {
-                const slotDate = new Date(s.start_time).toISOString().split('T')[0]
+                const slotDate = getSlotDate(s.start_time)
                 return slotDate === viewDate
               }).length === 0 ? (
                 <div className="text-center py-12 bg-gray-100 rounded-2xl">
@@ -659,15 +670,10 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
                       new Set(
                         viewSlots
                           .filter(s => {
-                            const slotDate = new Date(s.start_time).toISOString().split('T')[0]
+                            const slotDate = getSlotDate(s.start_time)
                             return slotDate === viewDate
                           })
-                          .map(s => {
-                            const date = new Date(s.start_time)
-                            const hours = String(date.getHours()).padStart(2, '0')
-                            const minutes = String(date.getMinutes()).padStart(2, '0')
-                            return `${hours}:${minutes}`
-                          })
+                          .map(s => getSlotTime(s.start_time))
                       )
                     )
                       .sort()
@@ -679,11 +685,8 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
 
                           {courts.map(court => {
                             const slot = viewSlots.find(s => {
-                              const slotDate = new Date(s.start_time).toISOString().split('T')[0]
-                              const date = new Date(s.start_time)
-                              const hours = String(date.getHours()).padStart(2, '0')
-                              const minutes = String(date.getMinutes()).padStart(2, '0')
-                              const slotTime = `${hours}:${minutes}`
+                              const slotDate = getSlotDate(s.start_time)
+                              const slotTime = getSlotTime(s.start_time)
                               return slotDate === viewDate && slotTime === time && s.court_id === court.id
                             })
 

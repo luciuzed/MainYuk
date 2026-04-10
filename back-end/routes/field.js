@@ -437,8 +437,8 @@ router.get('/:fieldId/slots', async (req, res) => {
         fs.field_id,
         fs.court_id,
         c.name as court_name,
-        fs.start_time,
-        fs.end_time,
+        DATE_FORMAT(fs.start_time, '%Y-%m-%d %H:%i:%s') as start_time,
+        DATE_FORMAT(fs.end_time, '%Y-%m-%d %H:%i:%s') as end_time,
         fs.price,
         fs.is_booked
       FROM field_slot fs
