@@ -316,12 +316,12 @@ router.get('/user/:userId', async (req, res) => {
         b.booking_date,
         b.status,
         b.total_amount,
-        f.id as field_id,
-        f.name as field_name,
-        f.category,
-        f.image_url,
-        f.address,
-        f.city,
+        MAX(f.id) as field_id,
+        MAX(f.name) as field_name,
+        MAX(f.category) as category,
+        MAX(f.image_url) as image_url,
+        MAX(f.address) as address,
+        MAX(f.city) as city,
         GROUP_CONCAT(CONCAT(fs.start_time, ' - ', fs.end_time) SEPARATOR ', ') as time_slots
       FROM booking b
       LEFT JOIN payment p ON p.booking_id = b.id
@@ -461,11 +461,11 @@ router.get('/admin/:adminId', async (req, res) => {
         b.booking_date,
         b.status,
         b.total_amount,
-        f.id as field_id,
-        f.name as field_name,
-        u.name as user_name,
-        u.email as user_email,
-        u.number as user_phone,
+        MAX(f.id) as field_id,
+        MAX(f.name) as field_name,
+        MAX(u.name) as user_name,
+        MAX(u.email) as user_email,
+        MAX(u.number) as user_phone,
         GROUP_CONCAT(CONCAT(fs.start_time, ' - ', fs.end_time) SEPARATOR ', ') as time_slots
       FROM booking b
       JOIN booking_slot bs ON b.id = bs.booking_id
