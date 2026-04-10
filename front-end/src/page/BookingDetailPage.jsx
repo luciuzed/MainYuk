@@ -8,7 +8,15 @@ import {
 } from 'react-icons/fa';
 import LoadingOverlay from '../components/LoadingOverlay';
 import BookingSummaryModal from './BookingSummaryModal';
-import { apiUrl } from '../config/api';
+import { API_BASE_URL, apiUrl } from '../config/api';
+
+const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+
+const resolveImageUrl = (imageUrl) => {
+  if (!imageUrl) return '';
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+  return `${BACKEND_BASE_URL}${imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`}`;
+};
 
 const BookingDetailPage = () => {
   const { id } = useParams();
@@ -189,7 +197,7 @@ Total: Rp ${totalPrice.toLocaleString()}`;
         <div className="lg:col-span-2 space-y-6">
           <div className="relative rounded-3xl overflow-hidden aspect-video shadow-xl bg-gray-200">
             {field.image_url ? (
-              <img src={field.image_url} className="w-full h-full object-cover" alt={field.name} />
+              <img src={resolveImageUrl(field.image_url)} className="w-full h-full object-cover" alt={field.name} />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-gray-300 to-gray-400">
                 <span className="text-gray-600">No image</span>

@@ -2,10 +2,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+ENV UPLOADS_DIR=/app/uploads
+
 COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY . .
+
+RUN mkdir -p /app/uploads
 
 ENV NODE_ENV=production
 ENV PORT=5000

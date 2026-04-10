@@ -2,7 +2,15 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaMapMarkerAlt, FaStar, FaSearch, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import LoadingOverlay from '../components/LoadingOverlay';
-import { apiUrl } from '../config/api';
+import { API_BASE_URL, apiUrl } from '../config/api';
+
+const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+
+const resolveImageUrl = (imageUrl) => {
+  if (!imageUrl) return '';
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+  return `${BACKEND_BASE_URL}${imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`}`;
+};
 
 const ITEMS_PER_PAGE = 12;
 
@@ -101,7 +109,7 @@ const BookingPage = () => {
                 {item.image_url ? (
                   <>
                     <img 
-                      src={item.image_url} 
+                      src={resolveImageUrl(item.image_url)} 
                       alt={item.name} 
                       className={`w-full h-full object-cover transition duration-500 ${item.is_active === 0 ? 'grayscale' : 'group-hover:scale-105'}`} 
                     />

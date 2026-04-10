@@ -63,7 +63,7 @@ const SuccessMessage = ({ message, triggerKey, duration = 5000, onClose }) => {
         .success-message__text {
           font-size: 17px;
           line-height: 1;
-          font-weight: 600;
+          font-weight: 400;
         }
 
         .success-message.enter {

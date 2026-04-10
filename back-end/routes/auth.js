@@ -95,14 +95,29 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   console.log("Login attempt for:", email);
   try {
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    console.log('[LOGIN][User] Querying account by email');
     const [rows] = await db.execute('SELECT * FROM user WHERE email = ?', [email]);
-    if (rows.length === 0) return res.status(401).json({ error: "User not found" });
+    if (rows.length === 0) {
+      console.log('[LOGIN][User] Account not found');
+      return res.status(401).json({ error: "User not found" });
+    }
 
     const user = rows[0];
-    const isMatch = await bcrypt.compare(password, user.password);
-    console.log(`${password} vs ${user.password}`);
+    const storedHash = typeof user.password === 'string' ? user.password : '';
+    if (!storedHash) {
+      console.error('[LOGIN][User] Missing or invalid password hash. Available columns:', Object.keys(user));
+      return res.status(500).json({ error: 'Server error' });
+    }
+
+    console.log('[LOGIN][User] Comparing password hash');
+    const isMatch = await bcrypt.compare(password, storedHash);
 
     if (isMatch) {
+      console.log('[LOGIN][User] Credentials valid, generating OTP');
       const otp = generateOtp();
       const key = `${email}:user`;
       otpStore[key] = {
@@ -113,15 +128,19 @@ router.post('/login', async (req, res) => {
         role: 'User',
       };
 
+      console.log('[LOGIN][User] OTP stored, sending email');
       void sendOtpEmail(email, otp).catch((e) => {
-        console.error('Email send failed', e);
+        console.error('[LOGIN][User] Email send failed', e);
       });
 
+      console.log('[LOGIN][User] Returning OTP-needed response');
       return res.json({ message: "OTP sent", otpNeeded: true, user: { name: user.name, email: user.email }, role: 'User' });
     } else {
-      res.status(401).json({ error: "Wrong credentials" });
+      console.log('[LOGIN][User] Wrong credentials');
+      return res.status(401).json({ error: "Wrong credentials" });
     }
   } catch (err) {
+    console.error('[LOGIN][User] Unexpected error:', err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -130,14 +149,29 @@ router.post('/login-business', async (req, res) => {
   const { email, password } = req.body;
   console.log("Login attempt for:", email);
   try {
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    console.log('[LOGIN][Business] Querying account by email');
     const [rows] = await db.execute('SELECT * FROM admin WHERE email = ?', [email]);
-    if (rows.length === 0) return res.status(401).json({ error: "Account not found" });
+    if (rows.length === 0) {
+      console.log('[LOGIN][Business] Account not found');
+      return res.status(401).json({ error: "Account not found" });
+    }
 
     const admin = rows[0];
-    const isMatch = await bcrypt.compare(password, admin.password);
-    console.log(`${password} vs ${admin.password}`);
+    const storedHash = typeof admin.password === 'string' ? admin.password : '';
+    if (!storedHash) {
+      console.error('[LOGIN][Business] Missing or invalid password hash. Available columns:', Object.keys(admin));
+      return res.status(500).json({ error: 'Server error' });
+    }
+
+    console.log('[LOGIN][Business] Comparing password hash');
+    const isMatch = await bcrypt.compare(password, storedHash);
 
     if (isMatch) {
+      console.log('[LOGIN][Business] Credentials valid, generating OTP');
       const otp = generateOtp();
       const key = `${email}:business`;
       otpStore[key] = {
@@ -148,15 +182,19 @@ router.post('/login-business', async (req, res) => {
         role: 'Business',
       };
 
+      console.log('[LOGIN][Business] OTP stored, sending email');
       void sendOtpEmail(email, otp).catch((e) => {
-        console.error('Email send failed', e);
+        console.error('[LOGIN][Business] Email send failed', e);
       });
 
+      console.log('[LOGIN][Business] Returning OTP-needed response');
       return res.json({ message: "OTP sent", otpNeeded: true, admin: { name: admin.name, email: admin.email }, role: 'Business' });
     } else {
-      res.status(401).json({ error: "Wrong credentials" });
+      console.log('[LOGIN][Business] Wrong credentials');
+      return res.status(401).json({ error: "Wrong credentials" });
     }
   } catch (err) {
+    console.error('[LOGIN][Business] Unexpected error:', err);
     res.status(500).json({ error: "Server error" });
   }
 });

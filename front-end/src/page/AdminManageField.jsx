@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { FiBarChart2, FiBriefcase, FiGrid, FiEdit2, FiTrash2, FiX, FiCheck, FiTrendingUp, FiAward, FiUsers, FiCalendar } from 'react-icons/fi'
@@ -8,9 +8,16 @@ import Sidebar from '../components/Sidebar'
 import AdminManageSlot from './AdminManageSlot'
 import ConfirmationModal from './ConfirmationModal'
 import SuccessMessage from '../components/SuccessMessage'
-import { apiUrl } from '../config/api'
+import { API_BASE_URL, apiUrl } from '../config/api'
 
 const MAX_DESCRIPTION_LENGTH = 160
+const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
+
+const resolveImageUrl = (imageUrl) => {
+  if (!imageUrl) return ''
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl
+  return `${BACKEND_BASE_URL}${imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`}`
+}
 
 const AdminManageField = () => {
   const navigate = useNavigate()
@@ -27,6 +34,9 @@ const AdminManageField = () => {
   const [selectedFieldForSlots, setSelectedFieldForSlots] = useState(null)
   const [fieldToDelete, setFieldToDelete] = useState(null)
   const [isDeleteProcessing, setIsDeleteProcessing] = useState(false)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [uploadTypeError, setUploadTypeError] = useState('')
+  const fileInputRef = useRef(null)
 
   const showSuccessMessage = (message) => {
     setSuccess({ id: Date.now(), message })
@@ -37,8 +47,11 @@ const AdminManageField = () => {
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm()
+
+  const imagePreviewUrl = watch('imageUrl')
 
   // Check admin session on mount
   useEffect(() => {
@@ -184,7 +197,97 @@ const AdminManageField = () => {
   const handleCloseForm = () => {
     setShowFieldForm(false)
     setEditingField(null)
+    setUploadTypeError('')
     reset()
+  }
+
+  const handleUploadImageClick = () => {
+    setUploadTypeError('')
+    fileInputRef.current?.click()
+  }
+
+  const handleImageFileChange = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file) {
+      return
+    }
+
+    const fileName = file.name.toLowerCase()
+    const isAllowedMime = file.type === 'image/jpeg' || file.type === 'image/png'
+    const isAllowedExtension = fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.png')
+
+    if (!isAllowedMime || !isAllowedExtension) {
+      setUploadTypeError('only .jpg .jpeg and .png allowed')
+      return
+    }
+
+    setUploadTypeError('')
+    setError('')
+    setIsUploadingImage(true)
+    const previousImageUrl = imagePreviewUrl
+
+    try {
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+
+        reader.onload = () => {
+          const result = reader.result
+          if (typeof result !== 'string') {
+            reject(new Error('Failed to read file'))
+            return
+          }
+
+          const commaIndex = result.indexOf(',')
+          resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result)
+        }
+
+        reader.onerror = () => reject(new Error('Failed to read file'))
+        reader.readAsDataURL(file)
+      })
+
+      const response = await fetch(apiUrl('/uploads'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type,
+          base64Data,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        if ((errorData.error || '').toLowerCase() === 'only .jpg .jpeg and .png allowed') {
+          setUploadTypeError('only .jpg .jpeg and .png allowed')
+        } else {
+          setError(errorData.error || 'Failed to upload image')
+        }
+        return
+      }
+
+      const uploadData = await response.json()
+
+      if (
+        previousImageUrl &&
+        previousImageUrl.startsWith('/uploads/') &&
+        previousImageUrl !== uploadData.imageUrl
+      ) {
+        await fetch(apiUrl('/uploads'), {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl: previousImageUrl }),
+        })
+      }
+
+      setValue('imageUrl', uploadData.imageUrl, { shouldDirty: true })
+      showSuccessMessage('Image uploaded successfully')
+    } catch (err) {
+      setError('Failed to upload image')
+    } finally {
+      setIsUploadingImage(false)
+    }
   }
 
   const openSlotsModal = (field) => {
@@ -265,7 +368,7 @@ const AdminManageField = () => {
 
                         {field.image_url ? (
                           <img
-                            src={field.image_url}
+                            src={resolveImageUrl(field.image_url)}
                             alt={field.name}
                             className={`h-full w-full object-cover ${field.is_active === 0 ? 'grayscale' : ''}`}
                           />
@@ -325,12 +428,12 @@ const AdminManageField = () => {
                         </div>
                         <div className="space-y-1 text-sm text-gray-600">
                           <p>
-                            <span className="font-semibold text-gray-900">Category:</span> <span className="inline-block bg-gray-100 text-gray-700 px-3 py-0.5 rounded-full text-xs font-medium ml-1">{field.category}</span>
+                            <span className="text-xs font-bold text-gray-400 uppercase">Category:</span> <span className="inline-block bg-gray-100 text-gray-700 px-3 py-0.5 rounded-full text-xs font-medium ml-1">{field.category}</span>
                           </p>
                           <p>
-                            <span className="font-semibold text-gray-900">Address:</span>  <span className="inline-block bg-gray-100 text-gray-700 px-3 py-0.5 rounded-full text-xs font-medium ml-1">{field.address}</span>
+                            <span className="text-xs font-bold text-gray-400 uppercase">Address:</span>  <span className="inline-block bg-gray-100 text-gray-700 px-3 py-0.5 rounded-full text-xs font-medium ml-1">{field.address}</span>
                           </p>
-                          {field.city && <p><span className="font-semibold text-gray-900">City:</span>  <span className="inline-block bg-gray-100 text-gray-700 px-3 py-0.5 rounded-full text-xs font-medium ml-1">{field.city}</span>
+                          {field.city && <p><span className="text-xs font-bold text-gray-400 uppercase">City:</span>  <span className="inline-block bg-gray-100 text-gray-700 px-3 py-0.5 rounded-full text-xs font-medium ml-1">{field.city}</span>
                           </p>}
                         </div>
                       </div>
@@ -393,24 +496,24 @@ const AdminManageField = () => {
 
             <form onSubmit={handleSubmit(handleFieldSubmit)} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">Field Name *</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Name *</label>
                 <input
                   {...register('fieldName', { required: 'Field name is required' })}
                   placeholder="e.g., Main Futsal Court"
-                  className={`w-full px-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm ${
+                  className={`w-full px-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[13px] ${
                     errors.fieldName ? 'border-red-500' : 'border-gray-300'
                   }`}
                 />
                 {errors.fieldName && (
-                  <p className="text-red-500 text-sm mt-1 ml-4">{errors.fieldName.message}</p>
+                  <p className="text-red-500 text-xs mt-1 ml-4">{errors.fieldName.message}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">Category *</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Category *</label>
                 <select
                   {...register('category', { required: 'Category is required' })}
-                  className={`w-full px-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm ${
+                  className={`w-full px-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[13px] ${
                     errors.category ? 'border-red-500' : 'border-gray-300'
                   }`}
                 >
@@ -421,29 +524,29 @@ const AdminManageField = () => {
                   <option value="Tennis">Tennis</option>
                 </select>
                 {errors.category && (
-                  <p className="text-red-500 text-sm mt-1 ml-4">{errors.category.message}</p>
+                  <p className="text-red-500 text-xs mt-1 ml-4">{errors.category.message}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">Address *</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Address *</label>
                 <input
                   {...register('address', { required: 'Address is required' })}
                   placeholder="e.g., Jl. Merdeka No. 1"
-                  className={`w-full px-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm ${
+                  className={`w-full px-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[13px] ${
                     errors.address ? 'border-red-500' : 'border-gray-300'
                   }`}
                 />
                 {errors.address && (
-                  <p className="text-red-500 text-sm mt-1 ml-4">{errors.address.message}</p>
+                  <p className="text-red-500 text-xs mt-1 ml-4">{errors.address.message}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">City *</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">City *</label>
                 <select
                   {...register('city', { required: 'City is required' })}
-                  className={`w-full px-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm ${
+                  className={`w-full px-4 py-3 border rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[13px] ${
                     errors.city ? 'border-red-500' : 'border-gray-300'
                   }`}
                 >
@@ -455,12 +558,12 @@ const AdminManageField = () => {
                   <option value="Pekanbaru">Pekanbaru</option>
                 </select>
                 {errors.city && (
-                  <p className="text-red-500 text-sm mt-1 ml-4">{errors.city.message}</p>
+                  <p className="text-red-500 text-xs mt-1 ml-4">{errors.city.message}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">Description</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Description</label>
                 <textarea
                   {...register('description', {
                     maxLength: {
@@ -471,29 +574,59 @@ const AdminManageField = () => {
                   placeholder="Add details about your field..."
                   rows="3"
                   maxLength={MAX_DESCRIPTION_LENGTH}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm resize-none"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[13px] resize-none"
                 />
                 {errors.description && (
-                  <p className="text-red-500 text-sm mt-1 ml-4">{errors.description.message}</p>
+                  <p className="text-red-500 text-xs mt-1 ml-4">{errors.description.message}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">Google Maps Link</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Field Image</label>
+                <input {...register('imageUrl')} type="hidden" />
+                <button
+                  type="button"
+                  onClick={handleUploadImageClick}
+                  disabled={isUploadingImage}
+                  className={`w-full px-4 py-3 rounded-full text-[13px] font-semibold text-white transition ${
+                    isUploadingImage
+                      ? 'bg-primary/60 cursor-not-allowed'
+                      : 'bg-primary hover:bg-primary/80'
+                  }`}
+                >
+                  {isUploadingImage ? 'Uploading...' : 'Upload Image'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                  className="hidden"
+                  onChange={handleImageFileChange}
+                />
+                {uploadTypeError && (
+                  <p className="mt-2 text-xs text-red-500 text-center">{uploadTypeError}</p>
+                )}
+                {imagePreviewUrl && (
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Preview</p>
+                    <div className="w-full h-52 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100">
+                      <img
+                        src={resolveImageUrl(imagePreviewUrl)}
+                        alt="Uploaded field preview"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Google Maps Link</label>
                 <input
                   {...register('googleMapsLink')}
                   placeholder="https://maps.google.com/..."
                   type="url"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">Image URL</label>
-                <input
-                  {...register('imageUrl')}
-                  placeholder="https://example.com/image.jpg"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[13px]"
                 />
               </div>
 
@@ -504,7 +637,7 @@ const AdminManageField = () => {
                   className="w-5 h-5 accent-primary rounded cursor-pointer"
                   id="isActiveToggle"
                 />
-                <label htmlFor="isActiveToggle" className="text-sm font-semibold text-gray-700 cursor-pointer flex-1">
+                <label htmlFor="isActiveToggle" className="text-[13px] font-semibold text-gray-700 cursor-pointer flex-1">
                   {editingField ? (
                     <>Open for Bookings</>
                   ) : (
@@ -579,13 +712,13 @@ const AdminManageField = () => {
                 <button
                   type="button"
                   onClick={handleCloseForm}
-                  className="px-6 py-2.5 border border-gray-300 rounded-full hover:bg-gray-50 transition font-semibold text-sm text-gray-700"
+                  className="px-6 py-2.5 border border-gray-300 rounded-full hover:bg-gray-50 transition font-semibold text-[13px] text-gray-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-primary text-white rounded-full hover:opacity-90 transition flex items-center gap-2 font-semibold text-sm"
+                  className="px-6 py-2.5 bg-primary text-white rounded-full hover:opacity-90 transition flex items-center gap-2 font-semibold text-[13px]"
                 >
                   <FiCheck className="h-4 w-4" /> {editingField ? 'Update' : 'Create'}
                 </button>

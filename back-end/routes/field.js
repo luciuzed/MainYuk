@@ -1,10 +1,54 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const db = require('../config/database');
 
 const router = express.Router();
 
 const MAX_DESCRIPTION_LENGTH = 160;
 const MAX_ADDRESS_LENGTH = 150;
+const uploadsDir = process.env.UPLOADS_DIR || path.resolve(__dirname, '../../dev-storage/uploads');
+
+const normalizeImageUrl = (rawImageUrl) => {
+  if (rawImageUrl === undefined || rawImageUrl === null) {
+    return null;
+  }
+
+  const normalized = String(rawImageUrl).trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const lower = normalized.toLowerCase();
+  const hasAllowedExtension = lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png');
+
+  if (!normalized.startsWith('/uploads/') || !hasAllowedExtension) {
+    return { error: 'Image must be uploaded via upload button' };
+  }
+
+  return normalized;
+};
+
+const deleteUploadedImage = async (imageUrl) => {
+  if (!imageUrl || typeof imageUrl !== 'string' || !imageUrl.startsWith('/uploads/')) {
+    return;
+  }
+
+  const fileName = path.basename(imageUrl);
+  if (!fileName) {
+    return;
+  }
+
+  const filePath = path.join(uploadsDir, fileName);
+
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.error('Failed to delete previous field image:', err);
+    }
+  }
+};
 
 const normalizeDescription = (rawDescription) => {
   if (rawDescription === undefined || rawDescription === null) {
@@ -108,6 +152,11 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: normalizedAddress.error });
   }
 
+  const normalizedImageUrl = normalizeImageUrl(imageUrl);
+  if (normalizedImageUrl && normalizedImageUrl.error) {
+    return res.status(400).json({ error: normalizedImageUrl.error });
+  }
+
   try {
     // Verify admin exists
     const [admin] = await db.execute('SELECT id FROM admin WHERE id = ?', [adminId]);
@@ -117,7 +166,7 @@ router.post('/', async (req, res) => {
 
     const [result] = await db.execute(
       'INSERT INTO field (admin_id, name, category, description, address, city, image_url, is_active, google_maps_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [adminId, name, category, normalizedDescription, normalizedAddress, city, imageUrl || null, isActive !== false ? 1 : 0, googleMapsLink || null]
+      [adminId, name, category, normalizedDescription, normalizedAddress, city, normalizedImageUrl, isActive !== false ? 1 : 0, googleMapsLink || null]
     );
 
     res.status(201).json({
@@ -128,7 +177,7 @@ router.post('/', async (req, res) => {
       description: normalizedDescription,
       address: normalizedAddress,
       city,
-      imageUrl,
+      imageUrl: normalizedImageUrl,
       isActive: isActive !== false ? 1 : 0,
       googleMapsLink: googleMapsLink || null,
       message: 'Field created successfully'
@@ -159,9 +208,14 @@ router.put('/:fieldId', async (req, res) => {
     return res.status(400).json({ error: normalizedAddress.error });
   }
 
+  const normalizedImageUrl = normalizeImageUrl(imageUrl);
+  if (normalizedImageUrl && normalizedImageUrl.error) {
+    return res.status(400).json({ error: normalizedImageUrl.error });
+  }
+
   try {
     // Verify field belongs to admin
-    const [field] = await db.execute('SELECT admin_id FROM field WHERE id = ?', [fieldId]);
+    const [field] = await db.execute('SELECT admin_id, image_url FROM field WHERE id = ?', [fieldId]);
     if (field.length === 0) {
       return res.status(404).json({ error: 'Field not found' });
     }
@@ -172,8 +226,12 @@ router.put('/:fieldId', async (req, res) => {
 
     await db.execute(
       'UPDATE field SET name = ?, category = ?, description = ?, address = ?, city = ?, image_url = ?, is_active = ?, google_maps_link = ? WHERE id = ?',
-      [name, category, normalizedDescription, normalizedAddress, city, imageUrl || null, isActive !== undefined ? (isActive ? 1 : 0) : 1, googleMapsLink || null, fieldId]
+      [name, category, normalizedDescription, normalizedAddress, city, normalizedImageUrl, isActive !== undefined ? (isActive ? 1 : 0) : 1, googleMapsLink || null, fieldId]
     );
+
+    if (field[0].image_url && field[0].image_url !== normalizedImageUrl) {
+      await deleteUploadedImage(field[0].image_url);
+    }
 
     res.json({ message: 'Field updated successfully' });
   } catch (err) {

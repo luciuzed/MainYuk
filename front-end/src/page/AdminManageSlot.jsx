@@ -441,7 +441,7 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
                   </div>
                 </div>
 
-                <div className="bg-linear-to-r from-primary/10 to-blue-50 rounded-2xl p-4 border border-primary/20">
+                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-300">
                   <p className="text-sm text-gray-700">System will automatically create 1-hour slots between these times. For example: 8:00-9:00.</p>
                 </div>
 
