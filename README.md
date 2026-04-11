@@ -1,0 +1,234 @@
+# MainYuk!
+
+Sports field booking platform with two roles:
+- User: browse venues, book slots, pay, and track booking status.
+- Business/Admin: manage venues, courts, slots, and monitor bookings/revenue.
+
+<a id="readme-top"></a>
+
+## About The Project
+
+![MainYuk Header](front-end/src/assets/header.png)
+
+MainYuk! is a full-stack web app for sports venue reservations.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Built With
+
+### Frontend
+
+[![React][React.js]][React-url]
+[![Vite][Vite.js]][Vite-url]
+[![TailwindCSS][TailwindCSS]][TailwindCSS-url]
+[![React Router][ReactRouter]][ReactRouter-url]
+
+### Backend
+
+[![Node.js][Node.js]][Node-url]
+[![Express][Express.js]][Express-url]
+[![MySQL][MySQL]][MySQL-url]
+[![Resend][Resend]][Resend-url]
+
+### Infrastructure
+
+[![Docker][Docker]][Docker-url]
+[![Nginx][Nginx]][Nginx-url]
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Project Structure
+
+```text
+.
+|- docker-compose.yml
+|- back-end/
+|  |- server.js
+|  |- config/database.js
+|  |- routes/
+|  |  |- auth.js
+|  |  |- booking.js
+|  |  |- court.js
+|  |  |- field.js
+|  |  |- upload.js
+|  |- utils/otp.js
+|- front-end/
+|  |- src/
+|  |  |- App.jsx
+|  |  |- config/api.js
+|  |  |- page/
+|- dev-storage/
+|  |- uploads/
+```
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- npm
+- MySQL database (with the required schema/tables already created)
+- Docker Desktop (optional, for containerized run)
+
+### Environment Variables
+
+Create a root `.env` file (same level as `docker-compose.yml`) and configure:
+
+```env
+# Backend
+NODE_ENV=development
+PORT=5000
+
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=your_mysql_user
+DB_PASSWORD=your_mysql_password
+DB_NAME=your_database_name
+
+# Optional for Docker backend host override
+DB_HOST_DOCKER=host.docker.internal
+
+# Upload storage path (optional)
+UPLOADS_DIR=
+
+# Required for OTP email sending
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM=verified_sender@yourdomain.com
+
+# Frontend
+VITE_API_BASE_URL=http://localhost:5000/api
+```
+
+Notes:
+- OTP sending depends on `RESEND_API_KEY` and `RESEND_FROM`.
+- Uploaded images are served from `/uploads` and stored in `dev-storage/uploads` by default.
+
+### Database Requirements
+
+This repository does not include migration/seed SQL files. The app expects these tables to exist:
+- `user`
+- `admin`
+- `field`
+- `court`
+- `field_slot`
+- `booking`
+- `booking_slot`
+- `payment`
+
+### Local Development
+
+1. Install backend dependencies
+	```bash
+	cd back-end
+	npm install
+	```
+2. Install frontend dependencies
+	```bash
+	cd ../front-end
+	npm install
+	```
+3. Run backend (dev mode)
+	```bash
+	cd ../back-end
+	npm run dev
+	```
+4. Run frontend
+	```bash
+	cd ../front-end
+	npm run dev
+	```
+5. Open the frontend URL shown by Vite (default: `http://localhost:5173`)
+
+### Run with Docker Compose
+
+From repository root:
+
+```bash
+docker compose up --build
+```
+
+Default exposed ports:
+- Frontend: `http://localhost:8080`
+- Backend API: `http://localhost:5000`
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## API Overview
+
+Base URL:
+- Local: `http://localhost:5000/api`
+- Docker: `http://localhost:5000/api` (host machine access)
+
+Main route groups currently used by frontend:
+- Auth: `/register`, `/register-business`, `/login`, `/login-business`, `/resend-otp`, `/verify-otp`
+- Fields public/admin: `/fields-public`, `/fields`, `/field`
+- Courts: `/courts/:fieldId`
+- Bookings/payments: `/bookings/*`
+- Uploads: `/uploads`
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Frontend Routes
+
+Public/user-facing routes currently defined:
+- `/venue`, `/venues`
+- `/venue/:id`, `/venues/:id`
+- `/login`
+- `/payment/:paymentId` (user protected)
+- `/profile` (user protected)
+
+Admin routes currently defined:
+- `/dashboard` (admin protected)
+- `/field` (admin protected)
+- `/booking` (admin protected)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Scripts
+
+### Backend (`back-end/package.json`)
+
+- `npm start` - run with Node
+- `npm run dev` - run with Nodemon
+
+### Frontend (`front-end/package.json`)
+
+- `npm run dev` - start Vite dev server
+- `npm run build` - production build
+- `npm run preview` - preview production build
+- `npm run lint` - run ESLint
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Credits
+
+- Best README template inspiration: Othneil Drew
+- Shields badges: https://shields.io
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- MARKDOWN LINKS & IMAGES -->
+[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
+[React-url]: https://react.dev/
+[Vite.js]: https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white
+[Vite-url]: https://vite.dev/
+[TailwindCSS]: https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white
+[TailwindCSS-url]: https://tailwindcss.com/
+[ReactRouter]: https://img.shields.io/badge/React_Router-CA4245?style=for-the-badge&logo=react-router&logoColor=white
+[ReactRouter-url]: https://reactrouter.com/
+
+[Node.js]: https://img.shields.io/badge/Node.js-5FA04E?style=for-the-badge&logo=node.js&logoColor=white
+[Node-url]: https://nodejs.org/
+[Express.js]: https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white
+[Express-url]: https://expressjs.com/
+[MySQL]: https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white
+[MySQL-url]: https://www.mysql.com/
+[Resend]: https://img.shields.io/badge/Resend-000000?style=for-the-badge&logo=resend&logoColor=white
+[Resend-url]: https://resend.com/
+
+[Docker]: https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white
+[Docker-url]: https://www.docker.com/
+[Nginx]: https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white
+[Nginx-url]: https://nginx.org/
