@@ -86,6 +86,16 @@ const Navbar = () => {
           </NavLink>
         </li>
         <li className="relative">
+          <NavLink to="/about" className={navItemClass}>
+            {({ isActive }) => (
+              <>
+                About
+                <span className={`absolute left-1/2 -translate-x-1/2 -bottom-2 h-0.5 bg-primary transition-all duration-300 ${isActive ? 'w-3/4' : 'w-0'}`} />
+              </>
+            )}
+          </NavLink>
+        </li>
+        <li className="relative">
           <NavLink to="/contact" className={navItemClass}>
             {({ isActive }) => (
               <>
@@ -155,7 +165,7 @@ const Navbar = () => {
               </span>
             </Link>
 
-            <div className="h-6 w-px bg-gray-400" /> 
+            <div className="h-6 w-px bg-gray-300" /> 
 
             <Link to="/login" state={{ initialMode: "login" }}>
               <button className="bg-primary text-white font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">
@@ -179,6 +189,7 @@ const Navbar = () => {
 
           <NavLink to="/" onClick={() => setIsOpen(false)}>Home</NavLink>
           <NavLink to="/venue" onClick={() => setIsOpen(false)}>Venue</NavLink>
+          <NavLink to="/about" onClick={() => setIsOpen(false)}>About</NavLink>
           <NavLink to="/contact" onClick={() => setIsOpen(false)}>Contact</NavLink>
 
           {user ? (
@@ -231,4 +242,4 @@ const Navbar = () => {
   )
 }
 
-export default Navbar;
+export default Navbar

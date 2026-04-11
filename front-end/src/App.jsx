@@ -11,6 +11,8 @@ import AdminManageField from "./page/AdminManageField"
 import AdminBooking from "./page/AdminBooking"
 import ProfilePage from "./page/ProfilePage"
 import Payment from "./page/Payment"
+import Home from "./page/Home"
+import About from "./page/About"
 
 // Protected route wrapper to redirect users based on role
 const ProtectedRoute = ({ children, allowedRole }) => {
@@ -103,11 +105,16 @@ function App() {
   const wrapperClass = isFullWidth ? "min-h-screen" : "container mx-auto px-10"
 
   return (
-    <div className={isDashboard ? "min-h-screen" : "min-h-screen flex flex-col"}>
-      {showNavbar && <Navbar />}
+    <div className="min-h-screen flex flex-col">
+      {showNavbar && (
+        <div className={wrapperClass}>
+          <Navbar />
+        </div>
+      )}
 
       <Routes>
-        <Route path="/" element={<></>} />
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
         <Route 
           path="/venue" 
           element={<BookingPage />} 

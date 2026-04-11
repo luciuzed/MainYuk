@@ -1,19 +1,9 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React from "react";
 import Footer from "./Footer";
 
 const SPORTS = ["Futsal","Badminton","Basket","Sepakbola","Tenis","Voli","Golf","Renang","Yoga","Biliar","Bowling","Boxing"];
 
 const Home = () => {
-  const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchCity, setSearchCity] = useState("");
-  const [searchSport, setSearchSport] = useState("");
-
-  const handleSearch = () => {
-    navigate(`/reserve?term=${searchTerm}&city=${searchCity}&sport=${searchSport}`);
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-white">
 
@@ -33,14 +23,9 @@ const Home = () => {
           <input
             type="text"
             placeholder="🔍  Cari nama venue..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && handleSearch()}
             className="flex-1 px-4 py-3 rounded-xl border-0 outline-none text-[15px] text-gray-800 placeholder:text-gray-400 bg-gray-50"
           />
           <select
-            value={searchCity}
-            onChange={e => setSearchCity(e.target.value)}
             className="px-4 py-3 rounded-xl border-0 outline-none text-[15px] text-gray-700 bg-gray-50"
           >
             <option value="">Semua Kota</option>
@@ -49,15 +34,13 @@ const Home = () => {
             ))}
           </select>
           <select
-            value={searchSport}
-            onChange={e => setSearchSport(e.target.value)}
             className="px-4 py-3 rounded-xl border-0 outline-none text-[15px] text-gray-700 bg-gray-50"
           >
             <option value="">Semua Olahraga</option>
             {SPORTS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <button
-            onClick={handleSearch}
+            type="button"
             className="px-7 py-3 bg-[#00A859] hover:bg-[#008f4c] text-white text-[15px] font-bold rounded-xl transition-colors whitespace-nowrap"
           >
             Cari Venue
@@ -68,8 +51,8 @@ const Home = () => {
         <div className="flex flex-wrap justify-center gap-2 mt-8">
           {["Futsal","Badminton","Basket","Sepakbola","Tenis"].map(s => (
             <button
+              type="button"
               key={s}
-              onClick={() => navigate(`/reserve?sport=${s}`)}
               className="px-4 py-2 bg-gray-100 hover:bg-[#e6f7ef] text-gray-600 hover:text-[#00A859] text-[13px] font-semibold rounded-full transition-colors"
             >
               {s}
