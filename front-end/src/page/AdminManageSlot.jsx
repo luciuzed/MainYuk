@@ -38,6 +38,9 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
   const [viewDate, setViewDate] = useState(getLocalToday)
   const [viewSlots, setViewSlots] = useState([])
   const [slotsLoading, setSlotsLoading] = useState(false)
+  const [isDisablingSlots, setIsDisablingSlots] = useState(false)
+  const [selectedSlotIds, setSelectedSlotIds] = useState([])
+  const [slotsToDisable, setSlotsToDisable] = useState(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(null)
   const [courtToDelete, setCourtToDelete] = useState(null)
@@ -100,6 +103,17 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
       console.error('Failed to fetch slots:', err)
     }
   }
+
+  useEffect(() => {
+    // Keep selection in sync when date/filter data changes.
+    const visibleSlotIds = new Set(
+      viewSlots
+        .filter((slot) => getSlotDate(slot.start_time) === viewDate)
+        .map((slot) => slot.id)
+    )
+
+    setSelectedSlotIds((prev) => prev.filter((slotId) => visibleSlotIds.has(slotId)))
+  }, [viewDate, viewSlots])
 
   const handleAddCourt = async () => {
     if (!newCourtName.trim()) {
@@ -309,9 +323,77 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
     }
   }
 
+  const handleToggleSlotSelection = (slot) => {
+    if (!slot || slot.is_booked === 1) return
+
+    setSelectedSlotIds((prev) => {
+      if (prev.includes(slot.id)) {
+        return prev.filter((id) => id !== slot.id)
+      }
+      return [...prev, slot.id]
+    })
+  }
+
+  const handleSelectAllSlots = () => {
+    const selectableIds = viewSlots
+      .filter((slot) => getSlotDate(slot.start_time) === viewDate && slot.is_booked !== 1)
+      .map((slot) => slot.id)
+
+    // Toggle: if all are already selected, deselect all; otherwise select all
+    if (selectedSlotIds.length === selectableIds.length && selectedSlotIds.length > 0) {
+      setSelectedSlotIds([])
+    } else {
+      setSelectedSlotIds(selectableIds)
+    }
+  }
+
+  const handleDisableSelectedSlots = () => {
+    if (selectedSlotIds.length === 0) return
+    setSlotsToDisable(selectedSlotIds)
+  }
+
+  const closeDisableConfirmModal = () => {
+    if (isDisablingSlots) return
+    setSlotsToDisable(null)
+  }
+
+  const handleConfirmDisableSlots = async () => {
+    if (!slotsToDisable || slotsToDisable.length === 0) return
+
+    try {
+      setIsDisablingSlots(true)
+      const response = await fetch(apiUrl(`/field/${field.id}/slots/disable`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminId,
+          slotIds: slotsToDisable
+        })
+      })
+
+      if (response.ok) {
+        showSuccessMessage('Selected slots disabled')
+        setSelectedSlotIds([])
+        setSlotsToDisable(null)
+        await fetchSlotsOnly()
+      } else {
+        const errorData = await response.json()
+        showErrorMessage(errorData.error || 'Failed to disable slots')
+      }
+    } catch (err) {
+      showErrorMessage('Cannot connect to server')
+    } finally {
+      setIsDisablingSlots(false)
+    }
+  }
+
   const hasValidStartDate = Boolean(recurringStartDate)
   const hasValidDuration = Number.isInteger(recurringDuration) && recurringDuration > 0 && recurringDuration <= 365
   const canGenerateSlots = hasValidStartDate && hasValidDuration
+  const selectedDateSlots = viewSlots.filter((slot) => getSlotDate(slot.start_time) === viewDate)
+  const timeSlots = Array.from(new Set(selectedDateSlots.map((slot) => getSlotTime(slot.start_time)))).sort()
+  const selectableSlotCount = selectedDateSlots.filter((slot) => slot.is_booked !== 1).length
+  const hasSelectedSlots = selectedSlotIds.length > 0
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
@@ -638,15 +720,91 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
             <div>
               <p className="text-xs font-bold mb-3 text-gray-700">Schedule Preview</p>
 
-              {courts.length === 0 || viewSlots.filter(s => {
-                const slotDate = getSlotDate(s.start_time)
-                return slotDate === viewDate
-              }).length === 0 ? (
+              {courts.length === 0 || selectedDateSlots.length === 0 ? (
                 <div className="text-center py-12 bg-gray-100 rounded-2xl">
                   <p className="text-gray-500 font-semibold">No slots available for {viewDate}</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                  <div className="mb-3 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllSlots}
+                      disabled={selectableSlotCount === 0}
+                      className={`h-10 w-10 rounded-lg border-2 flex items-center justify-center text-xs font-bold transition ${
+                        selectableSlotCount === 0
+                          ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                          : selectedSlotIds.length === selectableSlotCount && selectableSlotCount > 0
+                          ? 'bg-primary text-white border-primary hover:bg-primary/90'
+                          : 'border-primary bg-white text-primary hover:bg-primary/5'
+                      }`}
+                      title="Select all slots"
+                      aria-label="Select all slots"
+                    >
+                      All
+                    </button>
+
+                    {hasSelectedSlots && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {}}
+                          className="h-10 w-10 rounded-lg bg-primary text-white flex items-center justify-center hover:opacity-90 transition"
+                          title="Edit selected slots"
+                          aria-label="Edit selected slots"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            className="h-5 w-5 relative left-px"
+                          >
+                            <path
+                              d="M12 20h9"
+                              stroke="currentColor"
+                              strokeWidth="2.4"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"
+                              stroke="currentColor"
+                              strokeWidth="2.4"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDisableSelectedSlots}
+                          disabled={isDisablingSlots}
+                          className={`h-10 w-10 rounded-lg text-white flex items-center justify-center transition ${
+                            isDisablingSlots ? 'bg-red-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'
+                          }`}
+                          title="Disable selected slots"
+                          aria-label="Disable selected slots"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            className="h-5 w-5"
+                          >
+                            <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2.4" />
+                            <path
+                              d="M8.5 15.5l7-7"
+                              stroke="currentColor"
+                              strokeWidth="2.4"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="overflow-x-auto">
                   <div
                     className="gap-2 p-6 rounded-2xl"
                     style={{
@@ -666,18 +824,7 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
                       </div>
                     ))}
 
-                    {Array.from(
-                      new Set(
-                        viewSlots
-                          .filter(s => {
-                            const slotDate = getSlotDate(s.start_time)
-                            return slotDate === viewDate
-                          })
-                          .map(s => getSlotTime(s.start_time))
-                      )
-                    )
-                      .sort()
-                      .map(time => (
+                    {timeSlots.map(time => (
                         <React.Fragment key={time}>
                           <div className="h-12 sm:h-14 flex items-center text-[9px] sm:text-[11px] font-semibold leading-none">
                             {time} - {String(parseInt(time.split(':')[0], 10) + 1).padStart(2, '0')}:00
@@ -695,18 +842,26 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
                             }
 
                             const isBooked = slot.is_booked === 1
+                            const isSelected = selectedSlotIds.includes(slot.id)
 
                             return (
-                              <div
+                              <button
+                                type="button"
                                 key={`slot-${slot.id}`}
+                                onClick={() => handleToggleSlotSelection(slot)}
+                                disabled={isBooked}
                                 className={`h-12 sm:h-14 rounded-xl border flex flex-col items-center justify-center transition p-2 text-center ${
                                   isBooked
-                                    ? 'bg-gray-300 text-gray-500 border-gray-300'
-                                    : 'bg-white text-gray-700 border-gray-300'
+                                    ? 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed'
+                                    : isSelected
+                                    ? 'bg-primary text-white border-primary'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:border-primary'
                                 }`}
                               >
                                 {isBooked ? (
                                   <span className="text-[9px] sm:text-[10px] font-semibold">Unavailable</span>
+                                ) : isSelected ? (
+                                  <span className="text-[9px] sm:text-[10px] font-bold">Selected</span>
                                 ) : (
                                   <>
                                     <span className="text-[9px] sm:text-[10px] font-bold text-primary">
@@ -717,13 +872,14 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
                                     </span>
                                   </>
                                 )}
-                              </div>
+                              </button>
                             )
                           })}
                         </React.Fragment>
                       ))}
                   </div>
                 </div>
+                </>
               )}
             </div>
           </div>
@@ -740,6 +896,14 @@ const AdminManageSlot = ({ field, adminId, onClose }) => {
         onConfirm={handleDeleteCourt}
         actionText="delete this court"
         isProcessing={isDeleteProcessing}
+      />
+
+      <ConfirmationModal
+        isOpen={slotsToDisable !== null}
+        onClose={closeDisableConfirmModal}
+        onConfirm={handleConfirmDisableSlots}
+        actionText={`disable ${slotsToDisable?.length || 0} slot${slotsToDisable?.length !== 1 ? 's' : ''}`}
+        isProcessing={isDisablingSlots}
       />
     </div>
   )

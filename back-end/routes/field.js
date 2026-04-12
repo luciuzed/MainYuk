@@ -575,4 +575,48 @@ router.post('/:fieldId/slots/override', async (req, res) => {
   }
 });
 
+// Disable selected slots for a field (marks them as unavailable)
+router.patch('/:fieldId/slots/disable', async (req, res) => {
+  const { fieldId } = req.params;
+  const { adminId, slotIds } = req.body;
+
+  if (!Array.isArray(slotIds) || slotIds.length === 0) {
+    return res.status(400).json({ error: 'slotIds must be a non-empty array' });
+  }
+
+  try {
+    const [field] = await db.execute('SELECT id FROM field WHERE id = ? AND admin_id = ?', [fieldId, adminId]);
+    if (field.length === 0) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    const placeholders = slotIds.map(() => '?').join(',');
+    const [slots] = await db.execute(
+      `SELECT id FROM field_slot WHERE field_id = ? AND id IN (${placeholders})`,
+      [fieldId, ...slotIds]
+    );
+
+    if (slots.length !== slotIds.length) {
+      return res.status(404).json({ error: 'One or more slots were not found in this field' });
+    }
+
+    const [result] = await db.execute(
+      `UPDATE field_slot
+       SET is_booked = 1
+       WHERE field_id = ?
+         AND id IN (${placeholders})
+         AND is_booked = 0`,
+      [fieldId, ...slotIds]
+    );
+
+    res.json({
+      message: 'Slots disabled successfully',
+      updatedCount: result.affectedRows
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to disable slots' });
+  }
+});
+
 module.exports = router;
