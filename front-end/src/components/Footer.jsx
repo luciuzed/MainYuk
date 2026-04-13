@@ -8,7 +8,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           <div>
             <h3 className="text-[28px] font-bold text-[#00A859] mb-3">MAINYUK!</h3>
-            <p className="text-gray-300 text-[14px] leading-relaxed">Platform pemesanan venue olahraga terdepan di Indonesia dengan ribuan pilihan venue berkualitas</p>
+            <p className="text-gray-300 text-[14px] leading-relaxed">Platform pemesanan venue olahraga terdepan di Indonesia</p>
           </div>
           
           <div>
