@@ -87,7 +87,7 @@ const BookingPage = () => {
           <button 
             key={cat} 
             onClick={() => { setActiveCategory(cat); setCurrentPage(1); }}
-            className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
+            className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border cursor-pointer ${
               activeCategory === cat ? "bg-primary text-white " : "bg-white text-gray-400 border-gray-100 hover:text-primary"
             }`}
           >

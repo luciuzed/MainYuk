@@ -160,7 +160,7 @@ const Navbar = () => {
         ) : (
           <div className="flex items-center gap-4">
             <Link to="/login" state={{ initialMode: "register" }}>
-              <span className="text-primary underline font-semibold cursor-pointer">
+              <span className="text-primary font-semibold cursor-pointer hover:underline  ">
                 Sign Up
               </span>
             </Link>
@@ -168,7 +168,7 @@ const Navbar = () => {
             <div className="h-6 w-px bg-gray-300" /> 
 
             <Link to="/login" state={{ initialMode: "login" }}>
-              <button className="bg-primary text-white font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">
+              <button className="bg-primary text-white font-semibold px-4 py-2 rounded-full cursor-pointer hover:opacity-90 transition">
                 Login
               </button>
             </Link>

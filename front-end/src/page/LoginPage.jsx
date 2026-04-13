@@ -457,15 +457,15 @@ const LoginPage = () => {
       {/* LEFT SIDE */}
       <div className="w-full lg:w-1/2 flex items-center px-6 lg:px-10">
         {showOtpUI ? (
-          <div className="w-full flex flex-col pt-5">
-            <div className="mx-5 mt-10 mb-8">
-              <button
+          <div className="w-full flex flex-col ">
+            <button
                 type="button"
                 onClick={handleOtpBackToAuth}
-                className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-6 uppercase hover:text-black"
+                className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-6 -mt-8  uppercase hover:text-black"
               >
-                <FaChevronLeft /> Back
-              </button>
+              <FaChevronLeft /> Back
+            </button>
+            <div className="mx-5 mt-10 mb-8">
               <h2 className="text-4xl font-semibold text-center">Verify OTP</h2>
               <p className="text-center text-gray-500 mt-2">
                 Enter the 4-digit code sent to your email to continue.
@@ -509,13 +509,7 @@ const LoginPage = () => {
               </button>
             </div>
 
-            <div className="w-full flex justify-center mt-6 text-center text-sm">
-              {otpStatus && (
-                <p className="text-green-600 font-medium">{otpStatus}</p>
-              )}
-            </div>
-
-            <div className="w-full flex justify-center mt-2 text-center text-sm text-gray-500">
+            <div className="w-full flex justify-center mt-3 text-center text-sm text-gray-500">
               <button
                 type="button"
                 onClick={handleResendOtp}
@@ -526,8 +520,14 @@ const LoginPage = () => {
               </button>
             </div>
 
+            <div className="w-full flex justify-center mt-4 text-center text-sm">
+              {otpStatus && (
+                <p className="text-green-600 font-medium">{otpStatus}</p>
+              )}
+            </div>
+
             {error && (
-              <p className="text-red-500 text-center mt-4">{error}</p>
+              <p className="text-red-500 text-center">{error}</p>
             )}
 
           </div>

@@ -311,7 +311,7 @@ Total: Rp ${totalPrice.toLocaleString()}`;
                           disabled={isBooked}
                           className={`h-12 sm:h-14 rounded-xl border flex items-center justify-center transition ${
                             isBooked
-                              ? "bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed"
+                              ? "bg-gray-300 text-gray-500 border-gray-300 "
                               : isSelected
                               ? "bg-primary text-white border-primary cursor-pointer"
                               : "bg-white text-gray-400 border-gray-300 hover:border-primary cursor-pointer"

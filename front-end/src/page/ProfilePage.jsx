@@ -113,6 +113,7 @@ const getBookingCardView = ({ booking, displayName, statusInfo, variant, emptyTi
       date: '--',
       time: '--',
       venue: '--',
+      createdAt: '--',
       showLoadingActions: false,
       showPayNow: false,
       showFooter: false,
@@ -215,6 +216,11 @@ const ProfilePage = () => {
   const [loadingBookings, setLoadingBookings] = useState(true);
   const navigate = useNavigate();
 
+  const handleLogout = () => {
+    Cookies.remove('user_session')
+    navigate('/login')
+  }
+
   useEffect(() => {
     const session = Cookies.get('user_session');
 
@@ -275,11 +281,17 @@ const ProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <ProfileSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <ProfileSidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab}
+        userName={user.name}
+        userEmail={user.email}
+        handleLogout={handleLogout}
+      />
 
       {/* MAIN CONTENT */}
       <div className="flex-1 p-8">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {activeTab === 'bookings' ? <BookingsList user={user} bookings={bookings} loadingBookings={loadingBookings} navigate={navigate} /> : <SecuritySection user={user} />}
         </div>
       </div>
@@ -312,7 +324,7 @@ const BookingsList = ({ user, bookings, loadingBookings, navigate }) => {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-black text-gray-800">My Bookings</h1>
+        <h1 className="text-3xl font-black text-gray-800">My Bookings</h1>
         <button
           type="button"
           onClick={() => navigate('/venue')}
@@ -396,6 +408,10 @@ const BookingCard = ({ variant, booking, displayName, statusInfo, navigate, empt
           <span className="text-gray-400 w-24">Venue</span>
           <span className="font-bold text-gray-700">{cardView.venue}</span>
         </div>
+        <div className="flex gap-10">
+          <span className="text-gray-400 w-24">Booking Date</span>
+          <span className="font-bold text-gray-700">{cardView.createdAt}</span>
+        </div>
       </div>
 
       {cardView.showFooter && (
@@ -424,41 +440,82 @@ const BookingCard = ({ variant, booking, displayName, statusInfo, navigate, empt
 };
 
 // --- SUB-COMPONENT: SECURITY ---
-const SecuritySection = ({ user }) => (
-  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl">
-    <h1 className="text-2xl font-black text-gray-800 mb-8">Security & Information</h1>
-    
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="bg-gray-100 p-3 rounded-2xl text-gray-600"><FaUserEdit size={20} /></div>
-          <div>
-            <h3 className="font-bold text-gray-800">Edit Basic Information</h3>
-            <p className="text-xs text-gray-400">Your email and display name</p>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <input type="text" defaultValue={user.name} className="w-full bg-gray-50 border-none p-4 rounded-xl text-sm" placeholder="Full Name" />
-          <input type="email" defaultValue={user.email} className="w-full bg-gray-50 border-none p-4 rounded-xl text-sm" placeholder="Email Address" />
-        </div>
-      </div>
 
-      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="bg-gray-100 p-3 rounded-2xl text-gray-600"><FaKey size={20} /></div>
-          <div>
-            <h3 className="font-bold text-gray-800">Change Password</h3>
-            <p className="text-xs text-gray-400">Make sure your password is strong and unique</p>
+const SecuritySection = ({ user }) => {
+  // Logic to mask the email (e.g., gemini@gmail.com -> ge***@gmail.com)
+  const maskEmail = (email) => {
+    if (!email || !email.includes('@')) return '***@***.com';
+    const [name, domain] = email.split('@');
+    return `${name.substring(0, 2)}***@${domain}`;
+  };
+
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl">
+      <h1 className="text-2xl font-black text-gray-800 mb-8">Security & Information</h1>
+      
+      <div className="space-y-6">
+        {/* BASIC INFO SECTION - NO INPUT BOXES */}
+        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="bg-primary/10 p-3 rounded-2xl text-primary">
+              <FaUserEdit size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-800">Account Identity</h3>
+              <p className="text-xs text-gray-400">Verified identity details</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-8">
+            {/* Display Name */}
+            <div className="flex justify-between items-center border-b border-black-50 pb-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1">Full Name</p>
+                <p className="text-sm font-bold text-gray-700">{user.name}</p>
+              </div>
+            </div>
+
+            {/* Email Address */}
+            <div className="flex justify-between items-center border-b border-black-50 pb-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1">Primary Email</p>
+                <p className="text-sm font-bold text-gray-700">{maskEmail(user.email)}</p>
+              </div>
+              <span className="text-[10px] bg-green-100 text-green-600 px-2.5 py-1 rounded-full font-black uppercase tracking-tighter">
+                Verified
+              </span>
+            </div>
           </div>
         </div>
-        <div className="space-y-4">
-          <input type="password" title="Old Password" placeholder="Old Password" className="w-full bg-gray-50 border-none p-4 rounded-xl text-sm" />
-          <input type="password" title="New Password" placeholder="New Password" className="w-full bg-gray-50 border-none p-4 rounded-xl text-sm" />
-          <button className="w-full py-4 bg-gray-800 text-white rounded-xl font-bold mt-2">Update Credentials</button>
+
+        {/* PASSWORD SECTION - KEEP INPUTS HERE AS THEY ARE EDITABLE */}
+        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="bg-gray-100 p-3 rounded-2xl text-gray-600"><FaKey size={20} /></div>
+            <div>
+              <h3 className="font-bold text-gray-800">Credentials</h3>
+              <p className="text-xs text-gray-400">Update your account password</p>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <input 
+              type="password" 
+              placeholder="Current Password" 
+              className="w-full bg-gray-50 border border-transparent focus:border-primary/20 focus:bg-white p-4 rounded-xl text-sm transition-all outline-none" 
+            />
+            <input 
+              type="password" 
+              placeholder="New Password" 
+              className="w-full bg-gray-50 border border-transparent focus:border-primary/20 focus:bg-white p-4 rounded-xl text-sm transition-all outline-none" 
+            />
+            <button className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold mt-2 hover:bg-black transition-all active:scale-[0.98]">
+              Update Password
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default ProfilePage;

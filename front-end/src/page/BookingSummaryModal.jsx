@@ -140,8 +140,14 @@ const BookingSummaryModal = ({
       <div className="bg-white w-full max-w-xl rounded-3xl overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b border-gray-300">
           <h2 className="text-xl font-bold text-gray-800">Booking Summary</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-black transition-colors">
-            <FaTimes size={20} />
+          <button onClick={onClose} 
+            disabled={isProcessing}
+            className={`transition-colors ${
+              isProcessing 
+                ? 'text-gray-200 pointer-events-none' // Light gray and unclickable
+                : 'text-gray-400 hover:text-black cursor-pointer' // Normal state
+            }`}>
+              <FaTimes size={20} />
           </button>
         </div>
 
@@ -184,7 +190,8 @@ const BookingSummaryModal = ({
                         </span>
                         <button 
                           onClick={() => onRemove(slot.id)}
-                          className="text-gray-300 hover:text-red-500 transition"
+                          disabled = {isProcessing}
+                          className={`text-gray-300 ${isProcessing ? 'pointer-events-none' : 'hover:text-red-500'} transition`}
                         >
                           <FaTrashAlt size={14} />
                         </button>
@@ -216,14 +223,19 @@ const BookingSummaryModal = ({
           <div className="flex gap-4 pt-4">
             <button 
               onClick={onClose} 
-              className="flex-1 py-3 border border-primary text-primary rounded-2xl font-bold hover:bg-primary hover:text-white transition-colors"
+              disabled={isProcessing}
+              className={`flex-1 py-3 border border-primary text-primary rounded-2xl font-bold transition-all 
+                ${isProcessing 
+                  ? 'opacity-50 pointer-events-none' 
+                  : 'cursor-pointer hover:bg-primary hover:text-white border-primary'
+                }`}
             >
               Cancel
             </button>
             <button 
               onClick={handleProceedToPayment}
               disabled={selectedSlots.length === 0 || isProcessing}
-              className="flex-1 py-3 bg-primary text-white rounded-2xl font-bold hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="flex-1 py-3 bg-primary text-white rounded-2xl font-bold cursor-pointer hover:opacity-90 shadow-lg disabled:opacity-50 transition-all"
             >
               {isProcessing ? 'Processing...' : 'Proceed to Payment'}
             </button>

@@ -105,12 +105,8 @@ function App() {
   const wrapperClass = isFullWidth ? "min-h-screen" : "container mx-auto px-10"
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {showNavbar && (
-        <div className={wrapperClass}>
-          <Navbar />
-        </div>
-      )}
+    <div className={wrapperClass}>
+      {showNavbar && <Navbar />}
 
       <Routes>
         <Route path="/" element={<Home />} />
