@@ -6,7 +6,17 @@ import LoadingOverlay from '../components/LoadingOverlay'
 import Notification from '../components/Notification'
 import Sidebar from '../components/Sidebar'
 import SuccessMessage from '../components/SuccessMessage'
-import { apiUrl } from '../config/api'
+import { API_BASE_URL, apiUrl } from '../config/api'
+
+const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
+const LOCAL_UPLOAD_IMAGE_PATTERN = /^\/uploads\/.+\.(jpe?g|png)$/i
+
+const resolveImageUrl = (imageUrl) => {
+  if (typeof imageUrl !== 'string') return ''
+  const normalized = imageUrl.trim()
+  if (!LOCAL_UPLOAD_IMAGE_PATTERN.test(normalized)) return ''
+  return `${BACKEND_BASE_URL}${normalized}`
+}
 
 const revenueColors = [
   'rgba(0, 110, 70, 0.95)',
@@ -91,6 +101,7 @@ const AdminDashboard = () => {
   const [weeklyPerformance, setWeeklyPerformance] = useState([])
   const [revenueSummary, setRevenueSummary] = useState({ totalRevenue: 0, venues: [] })
   const [hoveredRevenueVenueId, setHoveredRevenueVenueId] = useState(null)
+  const [hoveredWeeklySlotIndex, setHoveredWeeklySlotIndex] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(null)
@@ -432,7 +443,7 @@ const AdminDashboard = () => {
                     <span className="text-xs text-gray-400">Booked Slots This Week</span>
                   </div>
                   <div className="flex-1 min-h-0 rounded-xl border border-gray-50 p-4">
-                    <div className="grid h-full min-h-0 grid-cols-[2.5rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] pt-3">
+                    <div className="grid h-full min-h-0 grid-cols-[2.5rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] pt-2">
                       <div className="relative min-h-0">
                         <div className="absolute top-0 bottom-2 right-0 w-px bg-gray-300" />
                         <span className="absolute top-0 right-2 text-[10px] text-gray-400 font-semibold -translate-y-1/2">{chartMax}</span>
@@ -440,19 +451,30 @@ const AdminDashboard = () => {
                         <span className="absolute bottom-2 right-2 text-[10px] text-gray-400 font-semibold translate-y-1/2">0</span>
                       </div>
 
-                      <div className="relative min-h-0 pb-2">
+                      <div className="relative min-h-0 pb-1">
                         <div className="grid h-full grid-cols-7 gap-2 items-end">
                           {weeklySlotCounts.map((count, index) => {
                             const heightPercent = (count / chartMax) * 100
                             const barHeight = count === 0 ? 0 : Math.max(6, heightPercent)
+                            const isHovered = hoveredWeeklySlotIndex === index
 
                             return (
-                              <div key={dayLabels[index]} className="h-full flex items-end">
+                              <div
+                                key={dayLabels[index]}
+                                className="group h-full flex items-end justify-center"
+                                onMouseEnter={() => setHoveredWeeklySlotIndex(index)}
+                                onMouseLeave={() => setHoveredWeeklySlotIndex(null)}
+                              >
                                 <div
-                                  className="w-6 sm:w-13 mx-auto rounded-md bg-primary transition-all"
+                                  className="relative flex w-6 sm:w-13 items-end justify-center rounded-md bg-primary transition-all duration-200 group-hover:opacity-95"
                                   style={{ height: `${barHeight}%` }}
                                   aria-label={`${dayLabels[index]} bookings ${count}`}
                                 />
+                                {isHovered && (
+                                  <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 rounded-xl bg-white px-3 py-1.5 shadow-lg">
+                                    <span className="text-sm font-bold text-primary">{count}</span>
+                                  </div>
+                                )}
                               </div>
                             )
                           })}
@@ -465,9 +487,8 @@ const AdminDashboard = () => {
 
                       <div className="grid grid-cols-7 gap-2 pt-2">
                         {weeklySlotCounts.map((count, index) => (
-                          <div key={`${dayLabels[index]}-label`} className="flex flex-col items-center">
+                          <div key={`${dayLabels[index]}-label`} className="flex flex-col items-center justify-start">
                             <span className="text-[10px] text-gray-500 font-bold leading-none">{dayLabels[index]}</span>
-                            <span className="text-[10px] text-gray-500 font-semibold leading-none mt-1">{count}</span>
                           </div>
                         ))}
                       </div>
@@ -530,10 +551,9 @@ const AdminDashboard = () => {
                           )}
                         </>
                       ) : (
-                        <div className="h-full w-full rounded-full border border-dashed border-green-100 bg-green-50/50 flex items-center justify-center text-center px-8">
+                        <div className="h-full w-full rounded-full border border-dashed border-green-100 bg-primary/20 flex items-center justify-center text-center px-8">
                           <div>
                             <p className="text-sm font-bold text-gray-700">No confirmed revenue yet</p>
-                            <p className="text-xs text-gray-400 mt-1">Once bookings are confirmed, the chart will update automatically.</p>
                           </div>
                         </div>
                       )}
@@ -590,14 +610,23 @@ const AdminDashboard = () => {
                 </div>
                 <div className="space-y-2">
                   {fields.slice(0, 3).map((field) => (
+                    (() => {
+                      const fieldImageUrl = field.image_url || field.imageUrl || ''
+
+                      return (
                     <div key={field.id} className="flex justify-between items-center p-3 rounded-lg border border-gray-100">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="h-14 w-14 shrink-0 bg-linear-to-br from-gray-200 to-gray-300 overflow-hidden rounded-lg">
-                          {field.image_url ? (
-                            <img src={field.image_url} alt={field.name} className="h-full w-full object-cover" />
+                          {fieldImageUrl ? (
+                            <img src={resolveImageUrl(fieldImageUrl)} alt={field.name} className="h-full w-full object-cover" />
                           ) : (
                             <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                              <FiGrid className="h-6 w-6 text-gray-300" />
+                              <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="3" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="14" width="7" height="7"></rect>
+                                <rect x="3" y="14" width="7" height="7"></rect>
+                              </svg>
                             </div>
                           )}
                         </div>
@@ -652,6 +681,8 @@ const AdminDashboard = () => {
                         )}
                       </span>
                     </div>
+                      )
+                    })()
                   ))}
                 </div>
               </div>

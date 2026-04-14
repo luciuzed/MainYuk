@@ -222,6 +222,57 @@ router.post('/payment-qr/admin/:adminId', async (req, res) => {
   }
 })
 
+router.delete('/payment-qr/admin/:adminId', async (req, res) => {
+  const { adminId } = req.params
+  const parsedAdminId = Number(adminId)
+
+  if (!Number.isInteger(parsedAdminId) || parsedAdminId < 1) {
+    return res.status(400).json({ error: 'Invalid adminId' })
+  }
+
+  try {
+    const [adminRows] = await db.execute('SELECT id FROM admin WHERE id = ?', [parsedAdminId])
+
+    if (!adminRows.length) {
+      return res.status(404).json({ error: 'Admin not found' })
+    }
+
+    const [previousQrRows] = await db.execute(
+      `SELECT DISTINCT qr_url
+       FROM field
+       WHERE admin_id = ? AND qr_url IS NOT NULL AND qr_url <> ''`,
+      [parsedAdminId]
+    )
+
+    await db.execute(
+      'UPDATE field SET qr_url = NULL WHERE admin_id = ?',
+      [parsedAdminId]
+    )
+
+    for (const row of previousQrRows) {
+      const previousImageUrl = row.qr_url
+      const previousFilePath = resolvePaymentQrFilePath(previousImageUrl)
+
+      if (!previousFilePath) {
+        continue
+      }
+
+      try {
+        await fs.promises.unlink(previousFilePath)
+      } catch (err) {
+        if (err.code !== 'ENOENT') {
+          console.error('Delete payment QR file error:', err)
+        }
+      }
+    }
+
+    return res.json({ message: 'Payment QR deleted successfully' })
+  } catch (err) {
+    console.error('Delete payment QR error:', err)
+    return res.status(500).json({ error: 'Failed to delete payment QR' })
+  }
+})
+
 router.get('/payment-qr/by-payment/:paymentId', async (req, res) => {
   const { paymentId } = req.params
   const parsedPaymentId = Number(paymentId)
@@ -232,7 +283,7 @@ router.get('/payment-qr/by-payment/:paymentId', async (req, res) => {
 
   try {
     const [rows] = await db.execute(
-      `SELECT f.qr_url
+      `SELECT f.admin_id
        FROM payment p
        JOIN booking b ON p.booking_id = b.id
        JOIN booking_slot bs ON bs.booking_id = b.id
@@ -247,7 +298,18 @@ router.get('/payment-qr/by-payment/:paymentId', async (req, res) => {
       return res.status(404).json({ error: 'Payment not found' })
     }
 
-    const imageUrl = rows[0].qr_url || null
+    const adminId = Number(rows[0].admin_id)
+
+    const [qrRows] = await db.execute(
+      `SELECT qr_url
+       FROM field
+       WHERE admin_id = ? AND qr_url IS NOT NULL AND qr_url <> ''
+       ORDER BY id DESC
+       LIMIT 1`,
+      [adminId]
+    )
+
+    const imageUrl = qrRows[0]?.qr_url || null
     return res.json({ imageUrl })
   } catch (err) {
     console.error('Fetch payment QR by payment error:', err)

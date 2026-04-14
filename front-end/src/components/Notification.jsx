@@ -27,7 +27,7 @@ const Notification = ({ isOpen, pendingBookings, onNotificationClick }) => {
         </div>
       ) : (
         <div className="px-4 py-5">
-          <p className="text-sm font-medium text-gray-500">nothing new here</p>
+          <p className="text-sm font-medium text-gray-500">Nothing new here.</p>
         </div>
       )}
     </div>

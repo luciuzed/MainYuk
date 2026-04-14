@@ -6,11 +6,13 @@ import Navbar from '../components/Navbar';
 import { API_BASE_URL, apiUrl } from '../config/api';
 
 const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+const LOCAL_QR_IMAGE_PATTERN = /^\/qr\/.+\.(jpe?g|png)$/i;
 
 const resolveImageUrl = (imageUrl) => {
-  if (!imageUrl) return '';
-  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
-  return `${BACKEND_BASE_URL}${imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`}`;
+  if (typeof imageUrl !== 'string') return '';
+  const normalized = imageUrl.trim();
+  if (!LOCAL_QR_IMAGE_PATTERN.test(normalized)) return '';
+  return `${BACKEND_BASE_URL}${normalized}`;
 };
 
 const Payment = () => {

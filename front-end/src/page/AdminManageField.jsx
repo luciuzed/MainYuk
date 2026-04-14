@@ -11,11 +11,13 @@ import { API_BASE_URL, apiUrl } from '../config/api'
 
 const MAX_DESCRIPTION_LENGTH = 160
 const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
+const LOCAL_UPLOAD_IMAGE_PATTERN = /^\/uploads\/.+\.(jpe?g|png)$/i
 
 const resolveImageUrl = (imageUrl) => {
-  if (!imageUrl) return ''
-  if (/^https?:\/\//i.test(imageUrl)) return imageUrl
-  return `${BACKEND_BASE_URL}${imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`}`
+  if (typeof imageUrl !== 'string') return ''
+  const normalized = imageUrl.trim()
+  if (!LOCAL_UPLOAD_IMAGE_PATTERN.test(normalized)) return ''
+  return `${BACKEND_BASE_URL}${normalized}`
 }
 
 const AdminManageField = () => {
@@ -33,6 +35,7 @@ const AdminManageField = () => {
   const [isDeleteProcessing, setIsDeleteProcessing] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [uploadTypeError, setUploadTypeError] = useState('')
+  const [paymentQrUrl, setPaymentQrUrl] = useState('')
   const fileInputRef = useRef(null)
 
   const showSuccessMessage = (message) => {
@@ -49,6 +52,8 @@ const AdminManageField = () => {
   } = useForm()
 
   const imagePreviewUrl = watch('imageUrl')
+  const isActiveChecked = Boolean(watch('isActive'))
+  const hasPaymentQr = Boolean(paymentQrUrl)
 
   // Check admin session on mount
   useEffect(() => {
@@ -76,6 +81,7 @@ const AdminManageField = () => {
   useEffect(() => {
     if (adminId) {
       fetchFields()
+      fetchPaymentQr()
     }
   }, [adminId])
 
@@ -96,7 +102,29 @@ const AdminManageField = () => {
     }
   }
 
+  const fetchPaymentQr = async () => {
+    try {
+      const response = await fetch(apiUrl(`/payment-qr/admin/${adminId}`))
+      if (!response.ok) {
+        return
+      }
+
+      const data = await response.json()
+      setPaymentQrUrl(data.imageUrl || '')
+    } catch (err) {
+      // Keep modal usable even if this fetch fails.
+      setPaymentQrUrl('')
+    }
+  }
+
   const handleFieldSubmit = async (data) => {
+    const wantsOpen = data.isActive === 'on' ? true : (data.isActive ? true : false)
+
+    if (wantsOpen && !hasPaymentQr) {
+      setError('Upload payment QR first before opening fields')
+      return
+    }
+
     try {
       setError('')
       setSuccess(null)
@@ -109,7 +137,7 @@ const AdminManageField = () => {
         address: data.address,
         city: data.city,
         imageUrl: data.imageUrl,
-        isActive: data.isActive === 'on' ? true : (data.isActive ? true : false),
+        isActive: wantsOpen,
         googleMapsLink: data.googleMapsLink,
       }
 
@@ -150,7 +178,7 @@ const AdminManageField = () => {
     setValue('address', field.address)
     setValue('city', field.city)
     setValue('imageUrl', field.image_url)
-    setValue('isActive', field.is_active === 1 ? true : false)
+    setValue('isActive', hasPaymentQr ? (field.is_active === 1 ? true : false) : false)
     setValue('googleMapsLink', field.google_maps_link || '')
     setShowFieldForm(true)
   }
@@ -371,7 +399,12 @@ const AdminManageField = () => {
                           />
                         ) : (
                           <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                            <FiBriefcase className="h-12 w-12 text-gray-300" />
+                            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
+                              <rect x="3" y="3" width="7" height="7"></rect>
+                              <rect x="14" y="3" width="7" height="7"></rect>
+                              <rect x="14" y="14" width="7" height="7"></rect>
+                              <rect x="3" y="14" width="7" height="7"></rect>
+                            </svg>
                           </div>
                         )}
                       </div>
@@ -622,6 +655,7 @@ const AdminManageField = () => {
                 <input
                   type="checkbox"
                   {...register('isActive')}
+                  disabled={!hasPaymentQr}
                   className="w-5 h-5 accent-primary rounded cursor-pointer"
                   id="isActiveToggle"
                 />
@@ -632,9 +666,13 @@ const AdminManageField = () => {
                     <>Open for Bookings</>
                   )}
                 </label>
+                {!hasPaymentQr ? (
+                  <span className="text-xs font-semibold text-red-500 text-right">
+                    Upload Payment QR first
+                  </span>
+                ) : (
                 <span className="text-xs font-medium text-gray-500">
-                  {editingField ? (
-                    editingField.is_active === 1 ? (
+                  {isActiveChecked ? (
                       <span className="inline-flex items-center gap-1">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -672,28 +710,9 @@ const AdminManageField = () => {
                         </svg>
                         <span>Closed</span>
                       </span>
-                    )
-                  ) : (
-                    <span className="inline-flex items-center gap-1">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        className="w-3.5 h-3.5"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M5 13l4 4L19 7"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                      <span>Open</span>
-                    </span>
                   )}
                 </span>
+                )}
               </div>
 
               <div className="flex gap-3 justify-end pt-6 border-t border-gray-200">
