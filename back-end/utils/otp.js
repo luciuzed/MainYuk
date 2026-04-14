@@ -1,8 +1,11 @@
+const crypto = require('crypto');
 const { Resend } = require('resend');
 
 const otpStore = {};
+const passwordResetStore = {};
 
 const generateOtp = () => Math.floor(1000 + Math.random() * 9000).toString();
+const generateResetToken = () => crypto.randomBytes(24).toString('hex');
 
 const createResendClient = () => {
   const apiKey = process.env.RESEND_API_KEY;
@@ -24,22 +27,40 @@ const getFromEmail = () => {
   return fromEmail;
 };
 
-const sendOtpEmail = async (recipient, otpCode) => {
+const normalizeAccountLabel = (role = 'User') => {
+  const normalized = String(role).trim().toLowerCase();
+  return normalized === 'business' || normalized === 'admin' ? 'Business' : 'User';
+};
+
+const sendOtpEmail = async (recipient, otpCode, options = {}) => {
+  const purpose = options.purpose || 'verification';
+  const accountLabel = normalizeAccountLabel(options.role);
+  const isPasswordReset = purpose === 'password-reset';
   const fromEmail = getFromEmail();
   const resend = createResendClient();
+  const subject = isPasswordReset
+    ? `Reset your ${accountLabel} password`
+    : `Your Verification Code: ${otpCode}`;
+  const heading = isPasswordReset
+    ? `${accountLabel} Password Reset Code`
+    : 'Your MainYuk Verification Code';
+  const intro = isPasswordReset
+    ? `You requested a password reset for your ${accountLabel.toLowerCase()} account.`
+    : 'Your code expires after 1 minute or if you request a new one.';
 
   const { data, error } = await resend.emails.send({
     from: `MainYuk Support <${fromEmail}>`,
     to: [recipient],
-    subject: `Your Verification Code: ${otpCode}`,
+    subject,
     html: `
       <div style="font-family: Poppins,sans-serif; min-width:1000px; overflow:auto; line-height:2">
         <div style="margin:50px auto; width:70%; padding:20px 0">
           <div style="border-bottom:1px solid #eee">
             <a href="" style="font-size:1.4em; color: #009966; text-decoration:none; font-weight:600">MainYuk!</a>
           </div>
-          <p style="font-size:1.1em">Your MainYuk Verification Code</p>
-          <p>This code expires after 1 minute or if you request a new one.</p>
+          <p style="font-size:1.1em">${heading}</p>
+          <p>${intro}</p>
+          ${isPasswordReset ? `<p>Account type: <strong>${accountLabel}</strong></p>` : ''}
           <h2 style="background: #009966; margin: 0 auto; width: max-content; padding: 0 10px; color: #fff; border-radius: 4px;">
             ${otpCode}
           </h2>
@@ -116,7 +137,9 @@ const sendBookingStatusEmail = async ({ recipient, userName, bookingId, fieldNam
 
 module.exports = {
   otpStore,
+  passwordResetStore,
   generateOtp,
+  generateResetToken,
   sendOtpEmail,
   sendBookingStatusEmail
 };

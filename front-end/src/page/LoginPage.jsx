@@ -9,7 +9,7 @@ import IMAGE_TENNIS from '../assets/tennis.jpg'
 import { apiUrl } from '../config/api'
 
 import Cookies from 'js-cookie';
-import { FaUser, FaLock, FaPhoneAlt, FaEye, FaEyeSlash, FaChevronLeft } from "react-icons/fa";
+import { FaUser, FaLock, FaPhoneAlt, FaEye, FaEyeSlash, FaChevronLeft, FaEnvelope } from "react-icons/fa";
 
 const PasswordInput = ({ placeholder, showPassword, setShowPassword, error, ...props }) => {
   return (
@@ -45,6 +45,7 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [mode, setMode] = useState("login")
   const [showOtpUI, setShowOtpUI] = useState(false)
+  const [showResetUI, setShowResetUI] = useState(false)
   const [otpCode, setOtpCode] = useState(['', '', '', ''])
   const [otpRemaining, setOtpRemaining] = useState(60)
   const [otpTimerCycle, setOtpTimerCycle] = useState(0)
@@ -52,6 +53,7 @@ const LoginPage = () => {
   const [pendingRegisterData, setPendingRegisterData] = useState(null)
   const [pendingLoginRoute, setPendingLoginRoute] = useState(null)
   const [pendingOtpInfo, setPendingOtpInfo] = useState(null)
+  const [pendingResetInfo, setPendingResetInfo] = useState(null)
   const [otpStatus, setOtpStatus] = useState('')
   const otpRefs = useRef([])
   const otpVerifyInFlight = useRef(false)
@@ -107,6 +109,8 @@ const LoginPage = () => {
     watch,
     reset,
     setValue,
+    setError: setFieldError,
+    clearErrors,
     formState: { errors }
   } = useForm()
 
@@ -117,13 +121,23 @@ const LoginPage = () => {
       setMode(newMode);
       
       setError("");
+      setOtpStatus('');
       setRole("User");
       setShowOtpUI(false);
+      setShowResetUI(false);
+      setPendingOtpInfo(null);
+      setPendingResetInfo(null);
       reset(); 
       
       window.history.replaceState({}, document.title);
     }
   }, [location.state, reset]);
+
+  const resetAuthMessages = () => {
+    setError('')
+    setOtpStatus('')
+    clearErrors()
+  }
 
   const handleLogin = async (formData) => {
     setError('');
@@ -231,19 +245,31 @@ const LoginPage = () => {
       return
     }
 
+    if (mode === 'forgot') {
+      await handleForgotPasswordSubmit(data)
+      return
+    }
+
     await handleLogin(data)
   }
 
   const handleModeSwitch = () => {
-    setMode(mode === "login" ? "register" : "login")
+    if (mode === 'forgot') {
+      setMode('login')
+    } else {
+      setMode(mode === "login" ? "register" : "login")
+    }
     setRole("User")
     setShowOtpUI(false)
+    setShowResetUI(false)
     setPendingRegisterData(null)
     setPendingLoginRoute(null)
+    setPendingOtpInfo(null)
+    setPendingResetInfo(null)
     setOtpCode(['', '', '', ''])
     setShowPassword(false)
     setShowConfirmPassword(false)
-    setError("")
+    resetAuthMessages()
     reset()
   }
 
@@ -256,15 +282,37 @@ const LoginPage = () => {
   }
 
   const handleForgotPassword = () => {
-    alert("Forgot password functionality - implement your logic here");
+    setMode('forgot')
+    setShowOtpUI(false)
+    setShowResetUI(false)
+    setPendingOtpInfo(null)
+    setPendingResetInfo(null)
+    setPendingLoginRoute(null)
+    setShowPassword(false)
+    setShowConfirmPassword(false)
+    setOtpCode(['', '', '', ''])
+    setOtpRemaining(60)
+    resetAuthMessages()
+    setValue('password', '')
+    setValue('confirmPassword', '')
   }
 
   const handleOtpBackToAuth = () => {
     setShowOtpUI(false)
-    setError('')
-    setOtpStatus('')
     setPendingOtpInfo(null)
+    resetAuthMessages()
     setOtpRemaining(60)
+  }
+
+  const handleResetBackToAuth = () => {
+    setShowResetUI(false)
+    setPendingResetInfo(null)
+    setMode('forgot')
+    resetAuthMessages()
+    setShowPassword(false)
+    setShowConfirmPassword(false)
+    setValue('newPassword', '')
+    setValue('confirmNewPassword', '')
   }
 
   const handleResendOtp = async () => {
@@ -413,6 +461,22 @@ const LoginPage = () => {
 
       const data = await response.json()
       if (response.ok && data.success) {
+        if (pendingOtpInfo?.flow === 'forgot-password') {
+          setPendingResetInfo({
+            email: pendingOtpInfo.email,
+            role: pendingOtpInfo.role,
+            resetToken: data.resetToken,
+          })
+          setShowOtpUI(false)
+          setPendingOtpInfo(null)
+          setOtpCode(['', '', '', ''])
+          setOtpStatus('')
+          setError('')
+          setMode('forgot')
+          setShowResetUI(true)
+          return
+        }
+
         const userPayload = data.user || { email: pendingOtpInfo.email, role: pendingOtpInfo.role, name: pendingOtpInfo.name, phone: pendingOtpInfo.phone  };
         
         // Set appropriate cookie based on role
@@ -448,6 +512,157 @@ const LoginPage = () => {
 
   const handleOtpVerify = () => {
     submitOtpVerification()
+  }
+
+  const renderRoleSelector = (disabled = false) => (
+    <div className="w-full flex justify-center">
+      <div className="w-3/4 flex mb-5 border-b border-gray-200">
+        <button
+          type="button"
+          onClick={() => !disabled && handleRoleChange('User')}
+          disabled={disabled}
+          className={`flex-1 pb-3 font-semibold ${disabled ? 'cursor-not-allowed opacity-60' : ''} ${
+            role === 'User'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-gray-400'
+          }`}
+        >
+          User
+        </button>
+
+        <button
+          type="button"
+          onClick={() => !disabled && handleRoleChange('Business')}
+          disabled={disabled}
+          className={`flex-1 pb-3 font-semibold ${disabled ? 'cursor-not-allowed opacity-60' : ''} ${
+            role === 'Business'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-gray-400'
+          }`}
+        >
+          Business
+        </button>
+      </div>
+    </div>
+  )
+
+  const handleForgotPasswordSubmit = async (formData) => {
+    setError('')
+    setOtpStatus('')
+    setIsLoading(true)
+
+    try {
+      const response = await fetch(apiUrl('/forgot-password'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          role,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.otpNeeded) {
+        setPendingOtpInfo({
+          email: formData.email,
+          role: data.role || role,
+          flow: 'forgot-password',
+        })
+        setPendingResetInfo(null)
+        setOtpCode(['', '', '', ''])
+        setOtpTimerCycle((prev) => prev + 1)
+        setShowResetUI(false)
+        setShowOtpUI(true)
+        return
+      }
+
+      if (response.status === 404 && data.field === 'email') {
+        setFieldError('email', { type: 'manual', message: data.error || 'Email does not exist' })
+        return
+      }
+
+      setError(data.error || 'Failed to start password reset')
+    } catch (err) {
+      setError('Cannot connect to server')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleResetPasswordSubmit = async (formData) => {
+    setError('')
+    setOtpStatus('')
+    clearErrors(['newPassword', 'confirmNewPassword'])
+
+    if (!formData.newPassword) {
+      setFieldError('newPassword', { type: 'manual', message: 'New password is required' })
+      return
+    }
+
+    if (String(formData.newPassword).length < 6) {
+      setFieldError('newPassword', { type: 'manual', message: 'Minimum 6 characters' })
+      return
+    }
+
+    if (!formData.confirmNewPassword) {
+      setFieldError('confirmNewPassword', { type: 'manual', message: 'Please confirm your new password' })
+      return
+    }
+
+    if (formData.newPassword !== formData.confirmNewPassword) {
+      setFieldError('confirmNewPassword', { type: 'manual', message: 'Passwords do not match' })
+      return
+    }
+
+    if (!pendingResetInfo?.resetToken) {
+      setError('Reset session not found. Please request a new OTP.')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(apiUrl('/reset-password'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resetToken: pendingResetInfo.resetToken,
+          newPassword: formData.newPassword,
+          confirmPassword: formData.confirmNewPassword,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setOtpStatus('Password updated successfully. You can now log in.')
+        setShowResetUI(false)
+        setPendingResetInfo(null)
+        setPendingOtpInfo(null)
+        setShowPassword(false)
+        setShowConfirmPassword(false)
+        setRole(role)
+        setMode('login')
+        reset({ email: pendingResetInfo.email })
+        return
+      }
+
+      if (data.field === 'newPassword') {
+        setFieldError('newPassword', { type: 'manual', message: data.error || 'Invalid password' })
+        return
+      }
+
+      if (data.field === 'confirmPassword') {
+        setFieldError('confirmNewPassword', { type: 'manual', message: data.error || 'Passwords do not match' })
+        return
+      }
+
+      setError(data.error || 'Failed to reset password')
+    } catch (err) {
+      setError('Cannot connect to server')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -531,6 +746,86 @@ const LoginPage = () => {
             )}
 
           </div>
+        ) : showResetUI ? (
+          <form
+            onSubmit={handleSubmit(handleResetPasswordSubmit)}
+            className="w-full flex flex-col pt-5"
+          >
+            <button
+              type="button"
+              onClick={handleResetBackToAuth}
+              className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-6 -mt-8 uppercase hover:text-black"
+            >
+              <FaChevronLeft /> Back
+            </button>
+
+            <h1 className="font-semibold text-5xl mx-5 justify-center items-center flex mt-0 mb-5">
+              Reset Password
+            </h1>
+
+            <div className="w-full flex justify-center">
+              <div className={`w-3/4 ${errors.newPassword ? 'mb-2' : 'mb-4'}`}>
+                <PasswordInput
+                  placeholder="New Password"
+                  showPassword={showPassword}
+                  setShowPassword={setShowPassword}
+                  error={errors.newPassword}
+                  {...register("newPassword", {
+                    required: "New password is required",
+                    minLength: {
+                      value: 6,
+                      message: "Minimum 6 characters"
+                    }
+                  })}
+                />
+
+                {errors.newPassword && (
+                  <p className="text-red-500 text-sm mt-1 ml-5">
+                    {errors.newPassword.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="w-full flex justify-center">
+              <div className={`w-3/4 ${errors.confirmNewPassword ? 'mb-2' : 'mb-4'}`}>
+                <PasswordInput
+                  placeholder="Confirm New Password"
+                  showPassword={showConfirmPassword}
+                  setShowPassword={setShowConfirmPassword}
+                  error={errors.confirmNewPassword}
+                  {...register("confirmNewPassword", {
+                    required: "Please confirm your new password",
+                    validate: (value) =>
+                      value === watch("newPassword") || "Passwords do not match"
+                  })}
+                />
+
+                {errors.confirmNewPassword && (
+                  <p className="text-red-500 text-sm mt-1 ml-5">
+                    {errors.confirmNewPassword.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <button
+                type="submit"
+                className="w-3/4 bg-primary text-white py-3 rounded-full font-semibold cursor-pointer hover:opacity-90 transition"
+              >
+                Continue
+              </button>
+            </div>
+
+            {otpStatus && (
+              <p className="text-green-600 font-medium text-center mt-4">{otpStatus}</p>
+            )}
+
+            {error && (
+              <p className="text-red-500 text-center mt-4">{error}</p>
+            )}
+          </form>
         ) : (
           <form
             onSubmit={handleSubmit(onSubmit)}
@@ -538,45 +833,17 @@ const LoginPage = () => {
           >
 
           {/* option */}
-          {mode === "login" && (
-            <div className="w-full flex justify-center">
-              <div className="w-3/4 flex mb-5 border-b border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => handleRoleChange("User")}
-                  className={`flex-1 pb-3 font-semibold ${
-                    role === "User"
-                      ? "text-primary border-b-2 border-primary"
-                      : "text-gray-400"
-                  }`}
-                >
-                  User
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleRoleChange("Business")}
-                  className={`flex-1 pb-3 font-semibold ${
-                    role === "Business"
-                      ? "text-primary border-b-2 border-primary"
-                      : "text-gray-400"
-                  }`}
-                >
-                  Business
-                </button>
-              </div>
-            </div>
-          )}
+          {(mode === "login" || mode === "forgot") && renderRoleSelector(false)}
 
           {/* title */}
           <h1
             className={`font-semibold text-5xl mx-5 justify-center items-center flex ${
-              mode === "login" ? "mt-10" : "mt-0"
+              mode === "register" ? "mt-0" : "mt-10"
             } ${
-              mode === "login" ? "mb-15" : "mb-5"
+              mode === "register" ? "mb-5" : "mb-15"
             }`} 
           >
-            {mode === "login" ? "Welcome Back!" : "Create Account"}
+            {mode === "login" ? "Welcome Back!" : mode === "register" ? "Create Account" : "Reset Password"}
           </h1>
         
         
@@ -651,7 +918,7 @@ const LoginPage = () => {
           <div className="w-full flex justify-center">
             <div className={`w-3/4 ${errors.email ? 'mb-2' : 'mb-4'}`}>
               <div className="relative">
-                <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
 
                 <input
                   type="email"
@@ -668,6 +935,8 @@ const LoginPage = () => {
                   }`}
                 />
               </div>
+
+              {mode === "forgot"}
 
               {errors.email && (
                 <p className="text-red-500 text-sm mt-1 ml-5">
@@ -795,6 +1064,9 @@ const LoginPage = () => {
               </div>
             </div>
           )}
+          {otpStatus && (
+            <p className="text-green-600 font-medium text-center mb-4">{otpStatus}</p>
+          )}
           <div className=""><p className="text-red-500 text-center mb-4">{error}</p></div>
           <div className="flex justify-center">
             <button
@@ -813,7 +1085,9 @@ const LoginPage = () => {
             >
               {mode === "login"
                 ? "Don’t have an account? Register"
-                : "Already have an account? Login"}
+                : mode === "forgot"
+                  ? "Back to Login"
+                  : "Already have an account? Login"}
             </button>
           </div>
         </form>

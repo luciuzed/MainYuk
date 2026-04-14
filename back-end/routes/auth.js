@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const db = require('../config/database');
-const { otpStore, generateOtp, sendOtpEmail } = require('../utils/otp');
+const { otpStore, passwordResetStore, generateOtp, generateResetToken, sendOtpEmail } = require('../utils/otp');
 
 const router = express.Router();
 
@@ -10,6 +10,10 @@ const normalizeOtpRoleKey = (role = '') => {
   if (normalized === 'business' || normalized === 'admin') return 'business';
   return 'user';
 };
+
+const normalizeRoleLabel = (role = '') => (normalizeOtpRoleKey(role) === 'business' ? 'Business' : 'User');
+
+const getAccountTable = (role = '') => (normalizeOtpRoleKey(role) === 'business' ? 'admin' : 'user');
 
 // REGISTER
 router.post('/register', async (req, res) => {
@@ -87,6 +91,47 @@ router.post('/register-business', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Registration failed" });
+  }
+});
+
+router.post('/forgot-password', async (req, res) => {
+  const { email, role } = req.body;
+
+  if (!email || !role) {
+    return res.status(400).json({ error: 'Email and role are required', field: 'email' });
+  }
+
+  try {
+    const table = getAccountTable(role);
+    const [rows] = await db.execute(`SELECT id FROM ${table} WHERE email = ?`, [email]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Email does not exist for the selected account type', field: 'email' });
+    }
+
+    const otp = generateOtp();
+    const normalizedRole = normalizeRoleLabel(role);
+    const key = `${email}:${normalizeOtpRoleKey(role)}`;
+
+    otpStore[key] = {
+      code: otp,
+      expiresAt: Date.now() + 60_000,
+      used: false,
+      type: 'forgot-password',
+      role: normalizedRole,
+    };
+
+    void sendOtpEmail(email, otp, {
+      purpose: 'password-reset',
+      role: normalizedRole,
+    }).catch((e) => {
+      console.error('[FORGOT-PASSWORD] Email send failed', e);
+    });
+
+    return res.json({ message: 'OTP sent for password reset', otpNeeded: true, role: normalizedRole });
+  } catch (err) {
+    console.error('[FORGOT-PASSWORD] Unexpected error:', err);
+    return res.status(500).json({ error: 'Failed to start password reset' });
   }
 });
 
@@ -221,7 +266,10 @@ router.post('/resend-otp', async (req, res) => {
   };
 
   try {
-    void sendOtpEmail(email, otp).catch((e) => {
+    void sendOtpEmail(email, otp, {
+      purpose: entry.type === 'forgot-password' ? 'password-reset' : 'verification',
+      role: entry.role,
+    }).catch((e) => {
       console.error('Resend OTP email failed', e);
     });
     return res.json({ message: 'OTP resent', otpNeeded: true });
@@ -267,6 +315,26 @@ router.post('/verify-otp', async (req, res) => {
   console.log(`[VERIFY-OTP] OTP verified successfully for ${email}`);
   entry.used = true;
 
+  if (entry.type === 'forgot-password') {
+    const resetToken = generateResetToken();
+    passwordResetStore[resetToken] = {
+      email,
+      role: entry.role,
+      expiresAt: Date.now() + 10 * 60_000,
+      used: false,
+    };
+
+    delete otpStore[key];
+
+    return res.json({
+      success: true,
+      message: 'OTP verified successfully',
+      role: entry.role,
+      email,
+      resetToken,
+    });
+  }
+
   let userData = { email: email, role: entry.role };
 
   if (entry.type === 'register') {
@@ -311,6 +379,58 @@ router.post('/verify-otp', async (req, res) => {
     user: userData,
     redirect: entry.role === 'Business' ? '/dashboard' : '/venue' 
   });
+});
+
+router.post('/reset-password', async (req, res) => {
+  const { resetToken, newPassword, confirmPassword } = req.body;
+
+  if (!resetToken || !newPassword || !confirmPassword) {
+    return res.status(400).json({ error: 'Reset token, new password, and confirm password are required' });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'Passwords do not match', field: 'confirmPassword' });
+  }
+
+  if (String(newPassword).length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters', field: 'newPassword' });
+  }
+
+  const session = passwordResetStore[resetToken];
+
+  if (!session) {
+    return res.status(401).json({ error: 'Reset session not found or expired' });
+  }
+
+  if (session.used) {
+    return res.status(401).json({ error: 'Reset session already used' });
+  }
+
+  if (Date.now() > session.expiresAt) {
+    delete passwordResetStore[resetToken];
+    return res.status(401).json({ error: 'Reset session expired' });
+  }
+
+  try {
+    const table = getAccountTable(session.role);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const [rows] = await db.execute(`SELECT id FROM ${table} WHERE email = ?`, [session.email]);
+    if (rows.length === 0) {
+      delete passwordResetStore[resetToken];
+      return res.status(404).json({ error: 'Account not found' });
+    }
+
+    await db.execute(`UPDATE ${table} SET password = ? WHERE email = ?`, [hashedPassword, session.email]);
+
+    session.used = true;
+    delete passwordResetStore[resetToken];
+
+    return res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) {
+    console.error('[RESET-PASSWORD] Error:', err);
+    return res.status(500).json({ error: 'Failed to reset password' });
+  }
 });
 
 router.post('/admin/change-password', async (req, res) => {
