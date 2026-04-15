@@ -289,10 +289,10 @@ router.post('/:bookingId/cancel-unpaid', async (req, res) => {
       return res.status(400).json({ error: 'Only unpaid bookings can be cancelled. Current status: ' + booking[0].status });
     }
 
-    // Update booking status to cancelled
+    // Update booking status to failed
     await connection.execute(
       'UPDATE booking SET status = ? WHERE id = ?',
-      ['cancelled', bookingId]
+      ['failed', bookingId]
     );
 
     // Unmark all slots as booked
@@ -314,8 +314,8 @@ router.post('/:bookingId/cancel-unpaid', async (req, res) => {
 
     res.json({
       id: bookingId,
-      status: 'cancelled',
-      message: 'Unpaid booking cancelled successfully. Slots have been released.'
+      status: 'failed',
+      message: 'Unpaid booking marked as failed successfully. Slots have been released.'
     });
 
   } catch (err) {
@@ -337,6 +337,9 @@ router.post('/:bookingId/cancel-unpaid', async (req, res) => {
 // POST /api/bookings/:bookingId/cancel
 router.post('/:bookingId/cancel', async (req, res) => {
   const { bookingId } = req.params;
+  const requestSource = String(req.body?.source || req.query?.source || 'user').trim().toLowerCase();
+  const isAdminRequest = requestSource === 'admin';
+  const targetStatus = isAdminRequest ? 'cancelled' : 'failed';
 
   try {
     // Verify booking exists
@@ -358,14 +361,14 @@ router.post('/:bookingId/cancel', async (req, res) => {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    if (booking[0].status === 'cancelled') {
-      return res.status(400).json({ error: 'Booking is already cancelled' });
+    if (booking[0].status === targetStatus) {
+      return res.status(400).json({ error: `Booking is already ${targetStatus}` });
     }
 
-    // Update booking status to cancelled
+    // Update booking status based on the request source
     await db.execute(
       'UPDATE booking SET status = ? WHERE id = ?',
-      ['cancelled', bookingId]
+      [targetStatus, bookingId]
     );
 
     // Unmark slots as booked
@@ -384,17 +387,19 @@ router.post('/:bookingId/cancel', async (req, res) => {
           userName: booking[0].user_name,
           bookingId,
           fieldName: booking[0].field_name,
-          status: 'rejected'
+          status: isAdminRequest ? 'rejected' : 'failed'
         });
       } catch (emailErr) {
-        console.error(`Booking ${bookingId} cancelled but email failed:`, emailErr.message);
+        console.error(`Booking ${bookingId} ${targetStatus} but email failed:`, emailErr.message);
       }
     }
 
     res.json({
       id: bookingId,
-      status: 'cancelled',
-      message: 'Booking cancelled successfully'
+      status: targetStatus,
+      message: isAdminRequest
+        ? 'Booking cancelled successfully'
+        : 'Booking marked as failed successfully'
     });
 
   } catch (err) {

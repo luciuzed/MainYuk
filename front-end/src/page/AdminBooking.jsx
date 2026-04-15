@@ -7,6 +7,7 @@ import Sidebar from '../components/Sidebar'
 import ConfirmationModal from './ConfirmationModal'
 import SuccessMessage from '../components/SuccessMessage'
 import { apiUrl } from '../config/api'
+import pendingIcon from '../assets/pending.svg'
 
 const AdminBooking = () => {
   const navigate = useNavigate()
@@ -126,7 +127,8 @@ const AdminBooking = () => {
       setError('')
       const response = await fetch(apiUrl(`/bookings/${bookingToCancel}/cancel`), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'admin' })
       })
 
       if (response.ok) {
@@ -207,13 +209,13 @@ const AdminBooking = () => {
                         <h3 className="text-lg font-bold text-gray-900">{booking.field_name}</h3>
                         <p className="text-sm text-gray-600 mt-1">Booking ID: #{booking.id}</p>
                       </div>
-                        <span className={`inline-flex items-center gap-1.5 font-bold px-4 py-1.5 text-[10px] rounded-full shrink-0 uppercase tracking-widest ${
+                        <span className={`inline-flex items-center gap-2 font-bold px-4 py-1.5 text-[10px] rounded-full shrink-0 uppercase tracking-widest ${
                           booking.status === 'confirmed' ? 'bg-primary text-white' :
                           booking.status === 'pending' ? 'bg-[#ff8904] text-white' :
-                          'bg-red-500 text-white'}`}>
+                          'bg-red-500 text-white'}`}> 
 
                           {booking.status === 'confirmed' && (
-                            <span className="inline-flex items-center gap-1">
+                            <span className="inline-flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 viewBox="0 0 24 24"
@@ -234,29 +236,20 @@ const AdminBooking = () => {
                           )}
                           
                           {booking.status === 'pending' && (
-                              <>
-                                  <svg 
-                                      xmlns="http://www.w3.org/2000/svg" 
-                                      width="12" 
-                                      height="12" 
-                                      viewBox="0 0 24 24" 
-                                      fill="none" 
-                                      stroke="currentColor" 
-                                      strokeWidth="2.5" 
-                                      strokeLinecap="round" 
-                                      strokeLinejoin="round"
-                                  >
-                                      <path d="M5 22h14" />
-                                      <path d="M5 2h14" />
-                                      <path d="M17 22c0-4-3-6-5-8-2 2-5 4-5 8" />
-                                      <path d="M17 2c0 4-3 6-5 8-2-2-5-4-5-8" />
-                                  </svg>
+                              <span className="inline-flex items-center gap-2">
+                                  <img
+                                    src={pendingIcon}
+                                    alt="pending"
+                                    width="12"
+                                    height="12"
+                                    aria-hidden="true"
+                                  />
                                   <span>Pending</span>
-                              </>
+                              </span>
                           )}
 
                           {booking.status === 'cancelled' && (
-                            <span className="inline-flex items-center gap-1">
+                            <span className="inline-flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 viewBox="0 0 24 24"

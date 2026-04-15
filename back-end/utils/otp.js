@@ -89,12 +89,19 @@ const sendBookingStatusEmail = async ({ recipient, userName, bookingId, fieldNam
 
   const normalizedStatus = String(status || '').trim().toLowerCase();
   const isConfirmed = normalizedStatus === 'confirmed';
-  const statusLabel = isConfirmed ? 'CONFIRMED' : 'REJECTED';
+  const isFailed = normalizedStatus === 'failed';
+  const statusLabel = isConfirmed ? 'CONFIRMED' : isFailed ? 'FAILED' : 'REJECTED';
   const accentColor = isConfirmed ? '#009966' : '#dc2626';
-  const heading = isConfirmed ? 'Great news! Your booking is confirmed.' : 'Update on your booking request';
+  const heading = isConfirmed
+    ? 'Great news! Your booking is confirmed.'
+    : isFailed
+      ? 'Your booking could not be completed.'
+      : 'Update on your booking request';
   const complementaryMessage = isConfirmed
     ? 'Get ready and have fun on the court! We hope you have an awesome game.'
-    : 'No worries, you can explore other available slots and try booking again anytime.';
+    : isFailed
+      ? 'You can review your booking history and create a new booking whenever you are ready.'
+      : 'No worries, you can explore other available slots and try booking again anytime.';
   const safeName = userName ? String(userName).trim() : 'there';
   const safeFieldName = fieldName ? String(fieldName).trim() : 'your selected field';
 

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaUserEdit, FaKey } from 'react-icons/fa';
-import { FiCheck } from 'react-icons/fi';
+import { FiCheck, FiX } from 'react-icons/fi';
 import Cookies from 'js-cookie';
 import LoadingOverlay from '../components/LoadingOverlay';
 import ProfileSidebar from '../components/ProfileSidebar';
 import SuccessMessage from '../components/SuccessMessage';
+import ConfirmationModal from './ConfirmationModal';
 import { API_BASE_URL, apiUrl } from '../config/api';
+import pendingIcon from '../assets/pending.svg';
 
 const getAccountId = (session) =>
   session?.id ?? session?.userId ?? session?.user_id ?? session?.accountId ?? null;
@@ -60,6 +62,19 @@ const formatTimeSlots = (timeSlots) => {
       return `${formattedStart} - ${formattedEnd}`;
     })
     .join(', ');
+};
+
+const fetchBookingHistory = async (accountId, signal) => {
+  const response = await fetch(`${API_BASE_URL}/bookings/user/${encodeURIComponent(accountId)}`, {
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch booking history');
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
 };
 
 const formatBookingStatus = (status) => {
@@ -138,7 +153,7 @@ const getBookingCardView = ({ booking, displayName, statusInfo, variant, emptyTi
 const StatusBadgeContent = ({ label, icon }) => {
   if (icon === 'check') {
     return (
-      <span className="inline-flex items-center gap-1">
+      <span className="inline-flex items-center gap-2">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
@@ -161,24 +176,14 @@ const StatusBadgeContent = ({ label, icon }) => {
 
   if (icon === 'pending') {
     return (
-      <span className="inline-flex items-center gap-1">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
+      <span className="inline-flex items-center gap-2">
+        <img
+          src={pendingIcon}
+          alt="pending"
           width="12"
           height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
           aria-hidden="true"
-        >
-          <path d="M5 22h14" />
-          <path d="M5 2h14" />
-          <path d="M17 22c0-4-3-6-5-8-2 2-5 4-5 8" />
-          <path d="M17 2c0 4-3 6-5 8-2-2-5-4-5-8" />
-        </svg>
+        />
         <span className="leading-none">{label}</span>
       </span>
     );
@@ -186,7 +191,7 @@ const StatusBadgeContent = ({ label, icon }) => {
 
   if (icon === 'x') {
     return (
-      <span className="inline-flex items-center gap-1">
+      <span className="inline-flex items-center gap-2">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
@@ -215,6 +220,10 @@ const ProfilePage = () => {
   const [user, setUser] = useState({ name: 'Guest', email: 'guest@example.com' });
   const [bookings, setBookings] = useState([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
+  const [bookingToCancel, setBookingToCancel] = useState(null);
+  const [isCancelProcessing, setIsCancelProcessing] = useState(false);
+  const [success, setSuccess] = useState(null);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -253,16 +262,8 @@ const ProfilePage = () => {
     const fetchBookings = async () => {
       try {
         setLoadingBookings(true);
-        const response = await fetch(`${API_BASE_URL}/bookings/user/${encodeURIComponent(accountId)}`, {
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch booking history');
-        }
-
-        const data = await response.json();
-        setBookings(Array.isArray(data) ? data : []);
+        const data = await fetchBookingHistory(accountId, controller.signal);
+        setBookings(data);
       } catch (error) {
         if (error.name !== 'AbortError') {
           console.error('Failed to load booking history:', error);
@@ -280,8 +281,72 @@ const ProfilePage = () => {
     return () => controller.abort();
   }, [user]);
 
+  const refreshBookings = async () => {
+    const accountId = getAccountId(user);
+
+    if (!accountId) {
+      return;
+    }
+
+    try {
+      const data = await fetchBookingHistory(accountId);
+      setBookings(data);
+    } catch (refreshError) {
+      console.error('Failed to refresh booking history:', refreshError);
+    }
+  };
+
+  const openCancelModal = (bookingId) => {
+    setError('');
+    setBookingToCancel(bookingId);
+  };
+
+  const closeCancelModal = () => {
+    if (isCancelProcessing) return;
+    setBookingToCancel(null);
+  };
+
+  const handleCancelBooking = async () => {
+    if (!bookingToCancel) return;
+
+    try {
+      setIsCancelProcessing(true);
+      setError('');
+
+      const response = await fetch(apiUrl(`/bookings/${bookingToCancel}/cancel`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'user' }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setError(data?.error || 'Failed to cancel booking');
+        return;
+      }
+
+      setSuccess({
+        id: Date.now(),
+        message: 'Booking marked as failed successfully',
+      });
+      setBookingToCancel(null);
+      await refreshBookings();
+    } catch (cancelError) {
+      console.error('Cancel booking error:', cancelError);
+      setError('Unable to connect to server');
+    } finally {
+      setIsCancelProcessing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      <SuccessMessage
+        message={success?.message}
+        triggerKey={success?.id}
+        onClose={() => setSuccess(null)}
+      />
       <ProfileSidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab}
@@ -293,15 +358,45 @@ const ProfilePage = () => {
       {/* MAIN CONTENT */}
       <div className="flex-1 p-8">
         <div className="max-w-6xl mx-auto">
-          {activeTab === 'bookings' ? <BookingsList user={user} bookings={bookings} loadingBookings={loadingBookings} navigate={navigate} /> : <SecuritySection user={user} />}
+          {error && (
+            <div className="mb-6 rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
+              {error}
+            </div>
+          )}
+          {activeTab === 'bookings' ? (
+            <BookingsList
+              user={user}
+              bookings={bookings}
+              loadingBookings={loadingBookings}
+              navigate={navigate}
+              onRequestCancel={openCancelModal}
+            />
+          ) : (
+            <SecuritySection user={user} />
+          )}
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={bookingToCancel !== null}
+        onClose={closeCancelModal}
+        onConfirm={handleCancelBooking}
+      actionText="mark this booking as failed"
+      confirmLabel="Confirm"
+        returnLabel="Return"
+        isProcessing={isCancelProcessing}
+        icon={(
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500">
+            <FiX className="h-10 w-10 text-white" aria-hidden="true" />
+          </div>
+        )}
+      />
     </div>
   );
 };
 
 // --- SUB-COMPONENT: BOOKINGS LIST ---
-const BookingsList = ({ user, bookings, loadingBookings, navigate }) => {
+const BookingsList = ({ user, bookings, loadingBookings, navigate, onRequestCancel }) => {
   const [bookingIdQuery, setBookingIdQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const displayName = (user.name || 'Guest').toUpperCase();
@@ -371,6 +466,7 @@ const BookingsList = ({ user, bookings, loadingBookings, navigate }) => {
                 displayName={displayName}
                 statusInfo={statusInfo}
                 navigate={navigate}
+                onRequestCancel={onRequestCancel}
               />
             );
           })}
@@ -384,7 +480,7 @@ const BookingsList = ({ user, bookings, loadingBookings, navigate }) => {
   );
 };
 
-const BookingCard = ({ variant, booking, displayName, statusInfo, navigate, emptyTitle }) => {
+const BookingCard = ({ variant, booking, displayName, statusInfo, navigate, onRequestCancel, emptyTitle }) => {
   const cardView = getBookingCardView({ booking, displayName, statusInfo, variant, emptyTitle });
 
   return (
@@ -428,9 +524,24 @@ const BookingCard = ({ variant, booking, displayName, statusInfo, navigate, empt
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => handleCancelBooking(booking.id)}
-                className="px-6 py-2 text-sm font-bold text-red-600 border border-red-100 bg-red-50 rounded-xl cursor-pointer hover:bg-red-100 transition"
+                onClick={() => onRequestCancel(booking.id)}
+                className="px-4 py-2 text-sm font-bold text-white bg-red-500 rounded-xl cursor-pointer hover:opacity-90 transition inline-flex items-center gap-2"
               >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="w-4 h-4"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M6 6l12 12M18 6l-12 12"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
                 Cancel
               </button>
 

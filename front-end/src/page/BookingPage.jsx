@@ -24,22 +24,30 @@ const BookingPage = () => {
   const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
-    fetchFields()
-  }, [])
+    const controller = new AbortController()
 
-  const fetchFields = async () => {
-    try {
-      const response = await fetch(apiUrl('/fields-public'))
-      if (response.ok) {
-        const data = await response.json()
-        setFields(data)
+    const fetchFields = async () => {
+      try {
+        const response = await fetch(apiUrl('/fields-public'), { signal: controller.signal })
+        if (response.ok) {
+          const data = await response.json()
+          setFields(data)
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Failed to fetch fields:', err)
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
       }
-    } catch (err) {
-      console.error('Failed to fetch fields:', err)
-    } finally {
-      setLoading(false)
     }
-  }
+
+    fetchFields()
+
+    return () => controller.abort()
+  }, [])
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -113,6 +121,8 @@ const BookingPage = () => {
                     <img 
                       src={resolveImageUrl(item.image_url)} 
                       alt={item.name} 
+                      loading="lazy"
+                      decoding="async"
                       className={`w-full h-full object-cover transition duration-500 ${item.is_active === 0 ? 'grayscale' : 'group-hover:scale-105'}`} 
                     />
                     {item.is_active === 0 && (

@@ -143,11 +143,17 @@ router.get('/', async (req, res) => {
         f.image_url,
         f.is_active,
         f.rating,
-        MIN(CASE WHEN DATE(fs.start_time) >= ? THEN fs.price END) AS min_price,
-        MAX(CASE WHEN DATE(fs.start_time) >= ? THEN fs.price END) AS max_price
+        stats.min_price,
+        stats.max_price
       FROM field f
-      LEFT JOIN field_slot fs ON f.id = fs.field_id
-      GROUP BY f.id
+      LEFT JOIN (
+        SELECT
+          field_id,
+          MIN(CASE WHEN DATE(start_time) >= ? THEN price END) AS min_price,
+          MAX(CASE WHEN DATE(start_time) >= ? THEN price END) AS max_price
+        FROM field_slot
+        GROUP BY field_id
+      ) stats ON f.id = stats.field_id
       ORDER BY f.is_active DESC, f.created_at DESC`,
       [todayInAppTimezone, todayInAppTimezone]
     );

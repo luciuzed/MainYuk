@@ -69,7 +69,7 @@ const ProfileSidebar = ({ activeTab, setActiveTab, userName, userEmail, handleLo
               <FiUser className="h-5 w-5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-white uppercase tracking-wide truncate">
+              <p className="text-xs font-bold text-white tracking-wide truncate">
                 {userName || 'Guest'}
               </p>
               <p className="text-[10px] text-white/70 truncate">

@@ -8,6 +8,7 @@ const ConfirmationModal = ({
   confirmLabel = 'Confirm',
   returnLabel = 'Return',
   isProcessing = false,
+  icon,
 }) => {
   useEffect(() => {
     if (!isOpen) return undefined
@@ -37,24 +38,26 @@ const ConfirmationModal = ({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-5 flex justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-10 w-10"
-              aria-hidden="true"
-            >
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              <line x1="10" y1="11" x2="10" y2="17" />
-              <line x1="14" y1="11" x2="14" y2="17" />
-            </svg>
-          </div>
+          {icon || (
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-10 w-10"
+                aria-hidden="true"
+              >
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <line x1="10" y1="11" x2="10" y2="17" />
+                <line x1="14" y1="11" x2="14" y2="17" />
+              </svg>
+            </div>
+          )}
         </div>
 
         <p className="text-center text-2xl font-extrabold text-gray-900 leading-tight">
