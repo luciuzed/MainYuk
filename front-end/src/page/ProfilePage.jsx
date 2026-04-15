@@ -34,6 +34,34 @@ const formatBookingDate = (value) => {
   });
 };
 
+const formatSlotDatesFromTimeSlots = (timeSlots) => {
+  if (!timeSlots) return ['--'];
+
+  const slotParts = String(timeSlots)
+    .split(',')
+    .map((slot) => slot.trim())
+    .filter(Boolean);
+
+  const seen = new Set();
+  const formattedDates = [];
+
+  slotParts.forEach((slot) => {
+    const dateMatch = slot.match(/(\d{4}-\d{2}-\d{2})/);
+    if (!dateMatch) return;
+
+    const dateToken = dateMatch[1];
+    if (seen.has(dateToken)) return;
+
+    const formatted = formatBookingDate(dateToken);
+    if (formatted !== '--') {
+      seen.add(dateToken);
+      formattedDates.push(formatted);
+    }
+  });
+
+  return formattedDates.length ? formattedDates : ['--'];
+};
+
 const formatFieldLabel = (fieldName, category) => {
   if (!fieldName) return 'Booking';
   return category ? `${fieldName} (${category})` : fieldName;
@@ -48,9 +76,9 @@ const formatTimeValue = (value) => {
 };
 
 const formatTimeSlots = (timeSlots) => {
-  if (!timeSlots) return '--';
+  if (!timeSlots) return ['--'];
 
-  return String(timeSlots)
+  const formattedSlots = String(timeSlots)
     .split(',')
     .map((slot) => slot.trim())
     .filter(Boolean)
@@ -60,8 +88,9 @@ const formatTimeSlots = (timeSlots) => {
       const formattedEnd = formatTimeValue(endTime);
 
       return `${formattedStart} - ${formattedEnd}`;
-    })
-    .join(', ');
+    });
+
+  return formattedSlots.length ? formattedSlots : ['--'];
 };
 
 const fetchBookingHistory = async (accountId, signal) => {
@@ -144,6 +173,7 @@ const getBookingCardView = ({ booking, displayName, statusInfo, variant, emptyTi
     date: formatBookingDate(booking.booking_date),
     time: formatTimeSlots(booking.time_slots),
     venue: formatFieldLabel(booking.field_name),
+    createdAt: formatSlotDatesFromTimeSlots(booking.time_slots),
     showLoadingActions: false,
     showPayNow: booking.status === 'unpaid' && Boolean(booking.payment_id),
     showFooter: true,
@@ -499,6 +529,19 @@ const BookingsList = ({ user, bookings, loadingBookings, navigate, onRequestCanc
 
 const BookingCard = ({ variant, booking, displayName, statusInfo, navigate, onRequestCancel, emptyTitle }) => {
   const cardView = getBookingCardView({ booking, displayName, statusInfo, variant, emptyTitle });
+  const renderWrappedValue = (value) => {
+    if (!Array.isArray(value)) {
+      return <span className="font-bold text-gray-700 flex-1 min-w-0">{value || '--'}</span>;
+    }
+
+    return (
+      <span className="font-bold text-gray-700 flex-1 min-w-0 flex flex-wrap content-start gap-x-6 gap-y-1">
+        {value.map((item, index) => (
+          <span key={`${item}-${index}`} className="whitespace-nowrap shrink-0">{item}</span>
+        ))}
+      </span>
+    );
+  };
 
   return (
     <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 relative overflow-hidden">
@@ -511,20 +554,20 @@ const BookingCard = ({ variant, booking, displayName, statusInfo, navigate, onRe
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 text-sm">
         <div className="flex gap-10">
-          <span className="text-gray-400 w-24">Date</span>
+          <span className="text-gray-400 w-24">Booking Date</span>
           <span className="font-bold text-gray-700">{cardView.date}</span>
         </div>
         <div className="flex gap-10">
-          <span className="text-gray-400 w-24">Time</span>
-          <span className="font-bold text-gray-700">{cardView.time}</span>
+          <span className="text-gray-400 w-24">Date</span>
+          {renderWrappedValue(cardView.createdAt)}
         </div>
         <div className="flex gap-10">
           <span className="text-gray-400 w-24">Venue</span>
           <span className="font-bold text-gray-700">{cardView.venue}</span>
         </div>
         <div className="flex gap-10">
-          <span className="text-gray-400 w-24">Booking Date</span>
-          <span className="font-bold text-gray-700">{cardView.createdAt}</span>
+          <span className="text-gray-400 w-24">Time</span>
+          {renderWrappedValue(cardView.time)}
         </div>
       </div>
 

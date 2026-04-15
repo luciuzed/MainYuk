@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FaMapMarkerAlt, FaStar, FaSearch, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { API_BASE_URL, apiUrl } from '../config/api';
@@ -17,6 +17,8 @@ const resolveImageUrl = (imageUrl) => {
 const ITEMS_PER_PAGE = 12;
 
 const BookingPage = () => {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [fields, setFields] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState('All')
@@ -53,6 +55,13 @@ const BookingPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [currentPage])
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const searchParam = params.get('search') || ''
+    setSearchQuery(searchParam)
+    setCurrentPage(1)
+  }, [location.search])
+
   const categories = ['All', 'Futsal', 'Badminton', 'Basketball', 'Tennis', 'Biliard']
 
   const filteredFields = useMemo(() => {
@@ -85,7 +94,15 @@ const BookingPage = () => {
               placeholder="Search..." 
               className="w-full text-[13px] text-gray-800 focus:outline-none"
               value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                const nextQuery = e.target.value
+                setSearchQuery(nextQuery)
+                setCurrentPage(1)
+
+                const trimmedQuery = nextQuery.trim()
+                const nextSearch = trimmedQuery ? `?search=${encodeURIComponent(trimmedQuery)}` : ''
+                navigate(`${location.pathname}${nextSearch}`, { replace: true })
+              }}
             />
           </div>
         </div>

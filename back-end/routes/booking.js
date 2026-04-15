@@ -473,9 +473,9 @@ router.get('/user/:userId', async (req, res) => {
         MAX(f.city) as city,
         GROUP_CONCAT(
           CONCAT(
-            DATE_FORMAT(fs.start_time, '%H:%i'),
+            DATE_FORMAT(fs.start_time, '%Y-%m-%d %H:%i'),
             ' - ',
-            DATE_FORMAT(fs.end_time, '%H:%i')
+            DATE_FORMAT(fs.end_time, '%Y-%m-%d %H:%i')
           )
           ORDER BY fs.start_time ASC
           SEPARATOR ', '

@@ -45,7 +45,8 @@ const Home = () => {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    navigate(`/venue?search=${searchQuery}`);
+    const query = searchQuery.trim();
+    navigate(query ? `/venue?search=${encodeURIComponent(query)}` : '/venue');
   };
 
   return (
