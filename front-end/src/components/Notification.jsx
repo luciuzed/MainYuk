@@ -1,12 +1,25 @@
 import React from 'react'
 
-const Notification = ({ isOpen, pendingBookings, onNotificationClick }) => {
-  if (!isOpen) return null
+const Notification = ({
+  isOpen,
+  pendingBookings,
+  onNotificationClick,
+  isEntering = false,
+  isExiting = false
+}) => {
+  if (!isOpen && !isExiting) return null
 
   const hasNotifications = pendingBookings.length > 0
 
   return (
-    <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-gray-200 bg-white shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+    <div
+      className="absolute right-0 mt-2 w-72 rounded-2xl border border-gray-200 bg-white shadow-xl z-50 overflow-hidden p-2"
+      style={{
+        opacity: isEntering || isExiting ? 0 : 1,
+        transform: isEntering || isExiting ? 'translateY(-10px)' : 'translateY(0)',
+        transition: 'opacity 0.3s ease-out, transform 0.3s ease-out'
+      }}
+    >
       <div className="px-4 py-3 border-b border-gray-100">
         <p className="text-sm font-black text-gray-900">Notifications</p>
       </div>

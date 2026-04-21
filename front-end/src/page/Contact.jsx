@@ -3,7 +3,7 @@ import Footer from "../components/Footer";
 import { FaPaperPlane, FaPhoneAlt, FaEnvelope } from "react-icons/fa";
 import { apiUrl } from "../config/api";
 
-import img from "../assets/badmin.jpg";
+import img from "../assets/badmin.webp";
 
 const CONTACT_NAME_MAX_LENGTH = 100;
 const CONTACT_EMAIL_MAX_LENGTH = 254;

@@ -108,6 +108,8 @@ const AdminDashboard = () => {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(null)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [isNotificationCardExiting, setIsNotificationCardExiting] = useState(false)
+  const [isNotificationCardEntering, setIsNotificationCardEntering] = useState(true)
   const notificationRef = useRef(null)
   const pendingBookings = bookings.filter((booking) => booking.status === 'pending')
   const hasNotifications = pendingBookings.length > 0
@@ -145,9 +147,26 @@ const AdminDashboard = () => {
   }, [adminId])
 
   useEffect(() => {
+    if (showNotifications && isNotificationCardEntering) {
+      const timer = setTimeout(() => {
+        setIsNotificationCardEntering(false)
+      }, 50)
+
+      return () => clearTimeout(timer)
+    }
+
+    return undefined
+  }, [showNotifications, isNotificationCardEntering])
+
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
-        setShowNotifications(false)
+        setIsNotificationCardExiting(true)
+        setTimeout(() => {
+          setShowNotifications(false)
+          setIsNotificationCardExiting(false)
+          setIsNotificationCardEntering(true)
+        }, 300)
       }
     }
 
@@ -288,8 +307,29 @@ const AdminDashboard = () => {
     : null
 
   const handleNotificationClick = (bookingId) => {
-    setShowNotifications(false)
-    navigate(`/admin/manage-booking#booking-${bookingId}`)
+    setIsNotificationCardExiting(true)
+    setTimeout(() => {
+      setShowNotifications(false)
+      setIsNotificationCardExiting(false)
+      setIsNotificationCardEntering(true)
+      navigate(`/admin/manage-booking#booking-${bookingId}`)
+    }, 300)
+  }
+
+  const handleToggleNotifications = () => {
+    if (showNotifications) {
+      setIsNotificationCardExiting(true)
+      setTimeout(() => {
+        setShowNotifications(false)
+        setIsNotificationCardExiting(false)
+        setIsNotificationCardEntering(true)
+      }, 300)
+      return
+    }
+
+    setShowNotifications(true)
+    setIsNotificationCardExiting(false)
+    setIsNotificationCardEntering(true)
   }
 
   return (
@@ -327,7 +367,7 @@ const AdminDashboard = () => {
               <div className="absolute right-0 top-0" ref={notificationRef}>
                 <button
                   type="button"
-                  onClick={() => setShowNotifications((prev) => !prev)}
+                  onClick={handleToggleNotifications}
                   className="relative flex h-12 w-12 items-center justify-center rounded-lg bg-transparent text-primary transition cursor-pointer hover:bg-gray-100"
                   aria-label="Notifications"
                 >
@@ -358,6 +398,8 @@ const AdminDashboard = () => {
 
                 <Notification
                   isOpen={showNotifications}
+                  isEntering={isNotificationCardEntering}
+                  isExiting={isNotificationCardExiting}
                   pendingBookings={pendingBookings}
                   onNotificationClick={handleNotificationClick}
                 />

@@ -16,6 +16,8 @@ const Navbar = () => {
   const [showNotifications, setShowNotifications] = useState(false)
   const [isCardExiting, setIsCardExiting] = useState(false)
   const [isCardEntering, setIsCardEntering] = useState(true)
+  const [isNotificationCardExiting, setIsNotificationCardExiting] = useState(false)
+  const [isNotificationCardEntering, setIsNotificationCardEntering] = useState(true)
   const [pendingBookings, setPendingBookings] = useState([])
   const dropdownRef = useRef(null)
   const notificationRef = useRef(null)
@@ -84,6 +86,15 @@ const Navbar = () => {
     }
   }, [showDropdown, isCardEntering])
 
+  useEffect(() => {
+    if (showNotifications && isNotificationCardEntering) {
+      const timer = setTimeout(() => {
+        setIsNotificationCardEntering(false)
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [showNotifications, isNotificationCardEntering])
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -92,11 +103,14 @@ const Navbar = () => {
 
       if (!clickedInsideDropdown && !clickedInsideNotifications) {
         setIsCardExiting(true)
+        setIsNotificationCardExiting(true)
         setTimeout(() => {
           setShowDropdown(false)
           setIsCardExiting(false)
           setIsCardEntering(true)
           setShowNotifications(false)
+          setIsNotificationCardExiting(false)
+          setIsNotificationCardEntering(true)
         }, 300)
       }
     }
@@ -119,7 +133,14 @@ const Navbar = () => {
   }
 
   const handleToggleDropdown = () => {
-    setShowNotifications(false)
+    if (showNotifications) {
+      setIsNotificationCardExiting(true)
+      setTimeout(() => {
+        setShowNotifications(false)
+        setIsNotificationCardExiting(false)
+        setIsNotificationCardEntering(true)
+      }, 300)
+    }
 
     if (showDropdown) {
       setIsCardExiting(true)
@@ -136,13 +157,37 @@ const Navbar = () => {
   }
 
   const handleToggleNotifications = () => {
-    setShowDropdown(false)
-    setShowNotifications((prev) => !prev)
+    if (showDropdown) {
+      setIsCardExiting(true)
+      setTimeout(() => {
+        setShowDropdown(false)
+        setIsCardExiting(false)
+        setIsCardEntering(true)
+      }, 300)
+    }
+
+    if (showNotifications) {
+      setIsNotificationCardExiting(true)
+      setTimeout(() => {
+        setShowNotifications(false)
+        setIsNotificationCardExiting(false)
+        setIsNotificationCardEntering(true)
+      }, 300)
+    } else {
+      setShowNotifications(true)
+      setIsNotificationCardExiting(false)
+      setIsNotificationCardEntering(true)
+    }
   }
 
   const handleNotificationClick = (bookingId) => {
-    setShowNotifications(false)
-    navigate(`/admin/manage-booking#booking-${bookingId}`)
+    setIsNotificationCardExiting(true)
+    setTimeout(() => {
+      setShowNotifications(false)
+      setIsNotificationCardExiting(false)
+      setIsNotificationCardEntering(true)
+      navigate(`/admin/manage-booking#booking-${bookingId}`)
+    }, 300)
   }
 
   const navItemClass = ({ isActive }) =>
@@ -239,6 +284,8 @@ const Navbar = () => {
 
                 <Notification
                   isOpen={showNotifications}
+                  isEntering={isNotificationCardEntering}
+                  isExiting={isNotificationCardExiting}
                   pendingBookings={pendingBookings}
                   onNotificationClick={handleNotificationClick}
                 />
