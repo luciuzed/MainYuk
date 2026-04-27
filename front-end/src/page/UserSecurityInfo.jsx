@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Cookies from 'js-cookie'
 import AdminSectionBreadcrumb from '../components/AdminSectionBreadcrumb'
 import SuccessMessage from '../components/SuccessMessage'
 import ProfileSidebar from '../components/ProfileSidebar'
 import { apiUrl } from '../config/api'
 import { FaUserEdit, FaKey } from 'react-icons/fa'
+import { fetchServerSession, logoutSession, withSessionAuth } from '../utils/session'
 
 const PASSWORD_MAX_LENGTH = 72
 
@@ -47,49 +47,28 @@ const UserSecurityInfo = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const userCookie = Cookies.get('user_session')
-
-    if (!userCookie) {
-      navigate('/login')
-      return
-    }
-
     let isActive = true
 
     const loadUserProfile = async () => {
       try {
-        let sessionData = null
+        const sessionData = await fetchServerSession()
 
-        if (userCookie) {
-          try {
-            sessionData = JSON.parse(userCookie)
-          } catch (error) {
-            console.error('Failed to parse user session:', error)
-          }
+        if (!sessionData || sessionData.role !== 'User') {
+          navigate('/login')
+          return
         }
 
         const sessionUserId = getAccountId(sessionData)
 
-        if (sessionData) {
-          setUserId(sessionUserId)
-          setUserName(sessionData.name || sessionData.userName || 'Guest')
-          setUserNumber(sessionData.phone || sessionData.number || '')
-          setUserEmail(sessionData.email || '')
-          setUserCreatedAt(sessionData.createdAt || sessionData.created_at || '')
-        }
+        setUserId(sessionUserId)
+        setUserName(sessionData.name || sessionData.userName || 'Guest')
+        setUserNumber(sessionData.phone || sessionData.number || '')
+        setUserEmail(sessionData.email || '')
+        setUserCreatedAt(sessionData.createdAt || sessionData.created_at || '')
 
-        const lookupParams = new URLSearchParams()
-        if (sessionData?.email) {
-          lookupParams.set('email', sessionData.email)
-        } else if (sessionUserId) {
-          lookupParams.set('userId', String(sessionUserId))
-        }
-
-        if (!lookupParams.toString()) {
-          return
-        }
-
-        const response = await fetch(apiUrl(`/user/profile?${lookupParams.toString()}`))
+        const response = await fetch(apiUrl('/user/profile'), {
+          headers: withSessionAuth(),
+        })
         const data = await response.json()
 
         if (!response.ok) {
@@ -107,6 +86,7 @@ const UserSecurityInfo = () => {
         setUserCreatedAt(data.user.createdAt || sessionData?.createdAt || sessionData?.created_at || '')
       } catch (error) {
         console.error('Failed to load user profile:', error)
+        navigate('/login')
       } finally {
         if (isActive) {
           setIsLoadingProfile(false)
@@ -119,10 +99,10 @@ const UserSecurityInfo = () => {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [navigate])
 
-  const handleLogout = () => {
-    Cookies.remove('user_session')
+  const handleLogout = async () => {
+    await logoutSession()
     navigate('/login')
   }
 
@@ -160,7 +140,7 @@ const UserSecurityInfo = () => {
       setSuccess(null)
       const response = await fetch(apiUrl('/user/change-password'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withSessionAuth({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           userId,
           currentPassword,

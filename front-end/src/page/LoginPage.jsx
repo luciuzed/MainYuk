@@ -7,8 +7,7 @@ import IMAGE_PADEL from '../assets/padel.jpg'
 import IMAGE_BILIARD from '../assets/biliard.jpg'
 import IMAGE_TENNIS from '../assets/tennis.jpg'
 import { apiUrl } from '../config/api'
-
-import Cookies from 'js-cookie';
+import { setSessionToken } from '../utils/session'
 import { FaUser, FaLock, FaPhoneAlt, FaEye, FaEyeSlash, FaChevronLeft, FaEnvelope } from "react-icons/fa";
 
 const EMAIL_MAX_LENGTH = 254
@@ -153,6 +152,7 @@ const LoginPage = () => {
       const response = await fetch(apiUrl(`/${url}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email: formData.email, password: formData.password }),
       });
 
@@ -168,7 +168,9 @@ const LoginPage = () => {
         setError('')
         return
       } else if (response.ok) {
-        Cookies.set('user_session', JSON.stringify(data.user), { expires: 7 });
+        if (data?.sessionToken) {
+          setSessionToken(data.sessionToken)
+        }
         const targetRoute = role === "User" ? "/venue" : "/admin/dashboard"
         navigate(targetRoute)
         return
@@ -199,6 +201,7 @@ const LoginPage = () => {
       const response = await fetch(apiUrl(`/${url}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ 
           name: formData.fullName, 
           email: formData.email, 
@@ -219,7 +222,9 @@ const LoginPage = () => {
         setError('')
         return
       } else if (response.ok) {
-        Cookies.set('user_session', JSON.stringify(data.user), { expires: 7 });
+        if (data?.sessionToken) {
+          setSessionToken(data.sessionToken)
+        }
         const targetRoute = role === "User" ? "/home" : "/admin/dashboard"
         navigate(targetRoute)
         setError('')
@@ -333,6 +338,7 @@ const LoginPage = () => {
       const response = await fetch(apiUrl('/resend-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email: pendingOtpInfo.email, role: pendingOtpInfo.role }),
       })
 
@@ -457,6 +463,7 @@ const LoginPage = () => {
       const response = await fetch(apiUrl('/verify-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           email: pendingOtpInfo.email,
           role: pendingOtpInfo.role,
@@ -482,18 +489,8 @@ const LoginPage = () => {
           return
         }
 
-        const userPayload = data.user || { email: pendingOtpInfo.email, role: pendingOtpInfo.role, name: pendingOtpInfo.name, phone: pendingOtpInfo.phone  };
-        
-        // Set appropriate cookie based on role
-        if (userPayload.role === 'Business') {
-          Cookies.set('admin_session', JSON.stringify({
-            adminId: userPayload.id,
-            adminName: userPayload.name,
-            email: userPayload.email,
-            phone: userPayload.phone
-          }), { expires: 7 });
-        } else {
-          Cookies.set('user_session', JSON.stringify(userPayload), { expires: 7 });
+        if (data?.sessionToken) {
+          setSessionToken(data.sessionToken)
         }
         
         setShowOtpUI(false)
@@ -560,6 +557,7 @@ const LoginPage = () => {
       const response = await fetch(apiUrl('/forgot-password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           email: formData.email,
           role,
@@ -638,6 +636,7 @@ const LoginPage = () => {
       const response = await fetch(apiUrl('/reset-password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           resetToken: pendingResetInfo.resetToken,
           newPassword: formData.newPassword,

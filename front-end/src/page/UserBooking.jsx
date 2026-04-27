@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import Cookies from 'js-cookie'
 import pendingIcon from '../assets/pending.svg'
 import AdminSectionBreadcrumb from '../components/AdminSectionBreadcrumb'
 import LoadingOverlay from '../components/LoadingOverlay'
@@ -8,6 +7,7 @@ import ProfileSidebar from '../components/ProfileSidebar'
 import SuccessMessage from '../components/SuccessMessage'
 import ConfirmationModal from './ConfirmationModal'
 import { apiUrl, API_BASE_URL } from '../config/api'
+import { fetchServerSession, logoutSession } from '../utils/session'
 
 const getAccountId = (session) =>
   session?.id ?? session?.userId ?? session?.user_id ?? session?.accountId ?? null
@@ -352,8 +352,8 @@ const UserBooking = () => {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const handleLogout = () => {
-    Cookies.remove('user_session')
+  const handleLogout = async () => {
+    await logoutSession()
     navigate('/login')
   }
 
@@ -367,19 +367,31 @@ const UserBooking = () => {
   }, [location.search])
 
   useEffect(() => {
-    const session = Cookies.get('user_session')
+    let isMounted = true
 
-    if (!session) {
-      setLoadingBookings(false)
-      return
+    const loadSession = async () => {
+      try {
+        const serverSession = await fetchServerSession()
+        if (!isMounted) return
+
+        if (serverSession?.role === 'User') {
+          setUser(serverSession)
+          return
+        }
+
+        navigate('/login')
+      } catch {
+        if (isMounted) {
+          setLoadingBookings(false)
+          navigate('/login')
+        }
+      }
     }
 
-    try {
-      const parsedData = JSON.parse(session)
-      setUser(parsedData)
-    } catch (error) {
-      console.error('Failed to parse user session:', error)
-      setLoadingBookings(false)
+    loadSession()
+
+    return () => {
+      isMounted = false
     }
   }, [])
 

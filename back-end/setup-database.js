@@ -118,6 +118,24 @@ async function setupDatabase() {
         PRIMARY KEY (\`id\`),
         KEY \`booking_id\` (\`booking_id\`),
         CONSTRAINT \`fk_payment_booking\` FOREIGN KEY (\`booking_id\`) REFERENCES \`booking\` (\`id\`) ON DELETE CASCADE
+      ) ENGINE=InnoDB`,
+
+      `CREATE TABLE IF NOT EXISTS \`auth_session\` (
+        \`id\` bigint NOT NULL AUTO_INCREMENT,
+        \`token_hash\` char(64) NOT NULL,
+        \`account_role\` enum('User','Business') NOT NULL,
+        \`account_id\` bigint NOT NULL,
+        \`account_name\` varchar(100) NOT NULL,
+        \`account_email\` varchar(100) NOT NULL,
+        \`account_phone\` varchar(20) DEFAULT NULL,
+        \`created_at\` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+        \`expires_at\` datetime NOT NULL,
+        \`last_used_at\` timestamp NULL DEFAULT NULL,
+        \`revoked_at\` timestamp NULL DEFAULT NULL,
+        PRIMARY KEY (\`id\`),
+        UNIQUE KEY \`uniq_auth_session_token_hash\` (\`token_hash\`),
+        KEY \`idx_auth_session_account\` (\`account_role\`,\`account_id\`),
+        KEY \`idx_auth_session_expires_at\` (\`expires_at\`)
       ) ENGINE=InnoDB`
     ];
 

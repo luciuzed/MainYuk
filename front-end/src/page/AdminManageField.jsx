@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { FiBarChart2, FiBriefcase, FiGrid, FiEdit2, FiTrash2, FiX, FiCheck, FiTrendingUp, FiAward, FiUsers, FiCalendar } from 'react-icons/fi'
 import { FaShieldAlt } from 'react-icons/fa'
-import Cookies from 'js-cookie'
 import LoadingOverlay from '../components/LoadingOverlay'
 import Sidebar from '../components/Sidebar'
 import ConfirmationModal from './ConfirmationModal'
 import SuccessMessage from '../components/SuccessMessage'
 import AdminSectionBreadcrumb from '../components/AdminSectionBreadcrumb'
 import { API_BASE_URL, apiUrl } from '../config/api'
+import { fetchServerSession, logoutSession } from '../utils/session'
 
 const MAX_DESCRIPTION_LENGTH = 1000
 const FIELD_NAME_MAX_LENGTH = 80
@@ -83,23 +83,23 @@ const AdminManageField = () => {
 
   // Check admin session on mount
   useEffect(() => {
-    const adminCookie = Cookies.get('admin_session')
-    const adminSession = JSON.parse(localStorage.getItem('adminId') || 'null')
+    let isMounted = true
 
-    if (!adminSession && !adminCookie) {
-      navigate('/login')
-      return
+    const loadAdminSession = async () => {
+      try {
+        const serverSession = await fetchServerSession()
+        if (!isMounted || serverSession?.role !== 'Business') return
+
+        setAdminId(serverSession.id)
+        setAdminName(serverSession.name || '')
+        setAdminEmail(serverSession.email || '')
+      } catch {}
     }
 
-    // Always prefer cookie data as it has all the info
-    if (adminCookie) {
-      const sessionData = JSON.parse(adminCookie)
-      setAdminId(sessionData.adminId)
-      setAdminName(sessionData.adminName)
-      setAdminEmail(sessionData.email)
-      localStorage.setItem('adminId', sessionData.adminId)
-    } else if (adminSession) {
-      setAdminId(adminSession)
+    loadAdminSession()
+
+    return () => {
+      isMounted = false
     }
   }, [navigate])
 
@@ -523,9 +523,8 @@ const AdminManageField = () => {
     navigate(`/admin/manage-field/courts/${field.id}`)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminId')
-    Cookies.remove('admin_session')
+  const handleLogout = async () => {
+    await logoutSession()
     navigate('/login')
   }
 

@@ -4,9 +4,9 @@ import logo from '../assets/logo.svg'
 import { FaBars, FaTimes, FaCalendarCheck, FaShieldAlt } from "react-icons/fa"
 import { FiBarChart2, FiCalendar, FiGrid, FiShield, FiLogOut } from "react-icons/fi"
 import { MdAccountCircle } from "react-icons/md"
-import Cookies from 'js-cookie'
 import Notification from './Notification'
 import { apiUrl } from '../config/api'
+import { fetchServerSession, logoutSession } from '../utils/session'
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -26,19 +26,37 @@ const Navbar = () => {
 
   // Update user/admin on route change
   useEffect(() => {
-    const userSession = Cookies.get('user_session')
-    const adminSession = Cookies.get('admin_session')
-    
-    
-    if (userSession) {
-      setUser(JSON.parse(userSession))
-      setAdmin(null)
-    } else if (adminSession) {
-      setAdmin(JSON.parse(adminSession))
-      setUser(null)
-    } else {
-      setUser(null)
-      setAdmin(null)
+    let isMounted = true
+
+    const loadSession = async () => {
+      try {
+        const serverSession = await fetchServerSession()
+
+        if (!isMounted || !serverSession) return
+
+        if (serverSession.role === 'Business') {
+          setAdmin({
+            ...serverSession,
+            adminId: serverSession.id,
+            adminName: serverSession.name,
+          })
+          setUser(null)
+        } else {
+          setUser(serverSession)
+          setAdmin(null)
+        }
+      } catch {
+        if (isMounted) {
+          setUser(null)
+          setAdmin(null)
+        }
+      }
+    }
+
+    loadSession()
+
+    return () => {
+      isMounted = false
     }
   }, [location])
 
@@ -118,9 +136,8 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  const handleLogout = () => {
-    Cookies.remove('user_session')
-    Cookies.remove('admin_session')
+  const handleLogout = async () => {
+    await logoutSession()
     setUser(null)
     setAdmin(null)
     setIsCardExiting(true)

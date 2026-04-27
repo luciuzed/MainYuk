@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Cookies from 'js-cookie';
 import { FaCalendarAlt, FaClock, FaTrashAlt, FaTimes, FaCheckCircle } from 'react-icons/fa';
 import { apiUrl } from '../config/api';
+import { fetchServerSession } from '../utils/session';
 
 const getSlotTime = (dateTimeValue) => String(dateTimeValue || '').slice(11, 16);
 
@@ -44,13 +44,9 @@ const BookingSummaryModal = ({
       setError('');
       setIsProcessing(true);
 
-      const userCookie = Cookies.get('user_session');
-      let userId;
+      const userData = await fetchServerSession();
 
-      if (userCookie) {
-        const userData = JSON.parse(userCookie);
-        userId = userData.id;
-      }
+      const userId = userData?.role === 'User' ? userData?.id : null;
 
       if (!userId) {
         setIsProcessing(false);

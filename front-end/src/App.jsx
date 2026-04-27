@@ -1,7 +1,7 @@
 import { Routes, Route, useLocation, Navigate } from "react-router-dom"
 import { useState, useEffect } from "react"
-import Cookies from "js-cookie"
 import Navbar from "./components/Navbar"
+import { fetchServerSession } from './utils/session'
 
 import LoginPage from "./page/LoginPage"
 import BookingPage from "./page/BookingPage"
@@ -25,25 +25,37 @@ const ProtectedRoute = ({ children, allowedRole }) => {
   const [isAuthorized, setIsAuthorized] = useState(null)
 
   useEffect(() => {
-    const adminSession = Cookies.get('admin_session')
-    const userSession = Cookies.get('user_session')
+    let isMounted = true
 
-    if (allowedRole === 'admin') {
-      // Only admin can access
-      if (adminSession) {
-        setIsAuthorized(true)
-      } else {
-        setIsAuthorized(false)
+    const checkAuthorization = async () => {
+      try {
+        const currentSession = await fetchServerSession()
+
+        if (!currentSession) {
+          if (isMounted) setIsAuthorized(false)
+          return
+        }
+
+        if (allowedRole === 'admin') {
+          if (isMounted) setIsAuthorized(currentSession.role === 'Business')
+          return
+        }
+
+        if (allowedRole === 'user') {
+          if (isMounted) setIsAuthorized(currentSession.role === 'User')
+          return
+        }
+
+        if (isMounted) setIsAuthorized(true)
+      } catch {
+        if (isMounted) setIsAuthorized(false)
       }
-    } else if (allowedRole === 'user') {
-      // Only regular user can access
-      if (userSession && !adminSession) {
-        setIsAuthorized(true)
-      } else {
-        setIsAuthorized(false)
-      }
-    } else {
-      setIsAuthorized(true)
+    }
+
+    checkAuthorization()
+
+    return () => {
+      isMounted = false
     }
   }, [allowedRole, location.pathname])
 
@@ -52,17 +64,7 @@ const ProtectedRoute = ({ children, allowedRole }) => {
   }
 
   if (!isAuthorized) {
-    // Determine redirect path based on current session state
-    const adminSession = Cookies.get('admin_session')
-    const userSession = Cookies.get('user_session')
-
-    if (adminSession) {
-      return <Navigate to="/admin/dashboard" replace />
-    } else if (userSession) {
-      return <Navigate to="/venue" replace />
-    } else {
-      return <Navigate to="/login" replace />
-    }
+    return <Navigate to="/login" replace />
   }
 
   return children
@@ -72,18 +74,32 @@ const ProtectedRoute = ({ children, allowedRole }) => {
 const LoginGuard = ({ children }) => {
   const location = useLocation()
   const [canAccess, setCanAccess] = useState(null)
+  const [redirectPath, setRedirectPath] = useState('/venue')
 
   useEffect(() => {
-    const adminSession = Cookies.get('admin_session')
-    const userSession = Cookies.get('user_session')
+    let isMounted = true
 
-    // If user has any session, redirect them
-    if (adminSession) {
-      setCanAccess(false) // Admin user, redirect to dashboard
-    } else if (userSession) {
-      setCanAccess(false) // Regular user, redirect to venue
-    } else {
-      setCanAccess(true) // No session, allow access to login
+    const checkLoginAccess = async () => {
+      try {
+        const serverSession = await fetchServerSession()
+        if (!isMounted) return
+
+        if (serverSession?.role === 'Business') {
+          setRedirectPath('/admin/dashboard')
+        } else {
+          setRedirectPath('/venue')
+        }
+
+        setCanAccess(!serverSession)
+      } catch {
+        if (isMounted) setCanAccess(true)
+      }
+    }
+
+    checkLoginAccess()
+
+    return () => {
+      isMounted = false
     }
   }, [location.pathname])
 
@@ -92,9 +108,6 @@ const LoginGuard = ({ children }) => {
   }
 
   if (!canAccess) {
-    // Redirect based on session type
-    const adminSession = Cookies.get('admin_session')
-    const redirectPath = adminSession ? '/admin/dashboard' : '/venue'
     return <Navigate to={redirectPath} replace />
   }
 

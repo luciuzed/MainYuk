@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Cookies from 'js-cookie'
 import { FiBarChart2, FiGrid, FiCalendar } from 'react-icons/fi'
 import { FaUserEdit, FaKey, FaShieldAlt } from 'react-icons/fa'
 import Sidebar from '../components/Sidebar'
 import SuccessMessage from '../components/SuccessMessage'
 import AdminSectionBreadcrumb from '../components/AdminSectionBreadcrumb'
 import { apiUrl } from '../config/api'
+import { fetchServerSession, logoutSession, withSessionAuth } from '../utils/session'
 
 const PASSWORD_MAX_LENGTH = 72
 
@@ -45,54 +45,22 @@ const AdminSecurityInfo = () => {
   const [success, setSuccess] = useState(null)
 
   useEffect(() => {
-    const adminCookie = Cookies.get('admin_session')
-    const adminSession = JSON.parse(localStorage.getItem('adminId') || 'null')
-
-    if (!adminSession && !adminCookie) {
-      navigate('/login')
-      return
-    }
-
     let isActive = true
 
     const loadAdminProfile = async () => {
       try {
-        let sessionData = null
+        const sessionData = await fetchServerSession()
 
-        if (adminCookie) {
-          try {
-            sessionData = JSON.parse(adminCookie)
-          } catch (error) {
-            console.error('Failed to parse admin session:', error)
-          }
-        }
+        if (!sessionData || sessionData.role !== 'Business') return
 
-        if (sessionData) {
-          setAdminId(sessionData.adminId ?? null)
-          setAdminName(sessionData.adminName || 'Admin')
-          setAdminNumber(sessionData.adminNumber || sessionData.phone || '')
-          setAdminEmail(sessionData.email || '')
-          setAdminCreatedAt(sessionData.createdAt || sessionData.created_at || '')
+        setAdminId(sessionData.id ?? null)
+        setAdminName(sessionData.name || 'Admin')
+        setAdminNumber(sessionData.phone || '')
+        setAdminEmail(sessionData.email || '')
 
-          if (sessionData.adminId) {
-            localStorage.setItem('adminId', sessionData.adminId)
-          }
-        } else if (adminSession) {
-          setAdminId(adminSession)
-        }
-
-        const lookupParams = new URLSearchParams()
-        if (sessionData?.email) {
-          lookupParams.set('email', sessionData.email)
-        } else if (sessionData?.adminId || adminSession) {
-          lookupParams.set('adminId', String(sessionData?.adminId || adminSession))
-        }
-
-        if (!lookupParams.toString()) {
-          return
-        }
-
-        const response = await fetch(apiUrl(`/admin/profile?${lookupParams.toString()}`))
+        const response = await fetch(apiUrl('/admin/profile'), {
+          headers: withSessionAuth(),
+        })
         const data = await response.json()
 
         if (!response.ok) {
@@ -103,11 +71,11 @@ const AdminSecurityInfo = () => {
           return
         }
 
-        setAdminId(data.admin.adminId ?? sessionData?.adminId ?? adminSession ?? null)
-        setAdminName(data.admin.adminName || sessionData?.adminName || 'Admin')
-        setAdminNumber(data.admin.adminNumber || sessionData?.adminNumber || sessionData?.phone || '')
+        setAdminId(data.admin.adminId ?? sessionData?.id ?? null)
+        setAdminName(data.admin.adminName || sessionData?.name || 'Admin')
+        setAdminNumber(data.admin.adminNumber || sessionData?.phone || '')
         setAdminEmail(data.admin.email || sessionData?.email || '')
-        setAdminCreatedAt(data.admin.createdAt || sessionData?.createdAt || sessionData?.created_at || '')
+        setAdminCreatedAt(data.admin.createdAt || '')
       } catch (error) {
         console.error('Failed to load admin profile:', error)
       } finally {
@@ -157,7 +125,7 @@ const AdminSecurityInfo = () => {
       setIsUpdatingPassword(true)
       const response = await fetch(apiUrl('/admin/change-password'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withSessionAuth({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           adminId,
           currentPassword,
@@ -187,9 +155,8 @@ const AdminSecurityInfo = () => {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminId')
-    Cookies.remove('admin_session')
+  const handleLogout = async () => {
+    await logoutSession()
     navigate('/login')
   }
 

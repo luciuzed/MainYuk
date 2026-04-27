@@ -12,4 +12,7 @@ USE_CASES.md
 dev-storage/
 keamanan.txt
 
+.env.production.example
+DEPLOYMENT.md
+
 .env

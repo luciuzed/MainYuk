@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import Cookies from 'js-cookie'
 import { FiX, FiCheck, FiTrash2, FiBarChart2, FiGrid, FiCalendar } from 'react-icons/fi'
 import { FaShieldAlt } from 'react-icons/fa'
 import LoadingOverlay from '../components/LoadingOverlay'
@@ -10,6 +9,7 @@ import SuccessMessage from '../components/SuccessMessage'
 import Sidebar from '../components/Sidebar'
 import AdminSectionBreadcrumb from '../components/AdminSectionBreadcrumb'
 import { apiUrl } from '../config/api'
+import { fetchServerSession, logoutSession } from '../utils/session'
 
 const getLocalToday = () => {
   const now = new Date()
@@ -1278,22 +1278,23 @@ const AdminManageSlot = ({ field, adminId, onClose, embedded = false }) => {
   useEffect(() => {
     if (hasDirectProps) return
 
-    const adminCookie = Cookies.get('admin_session')
-    const adminSession = JSON.parse(localStorage.getItem('adminId') || 'null')
+    let isMounted = true
 
-    if (!adminSession && !adminCookie) {
-      navigate('/login')
-      return
+    const loadAdminSession = async () => {
+      try {
+        const serverSession = await fetchServerSession()
+        if (!isMounted || serverSession?.role !== 'Business') return
+
+        setRouteAdminId(serverSession.id)
+        setAdminName(serverSession.name || '')
+        setAdminEmail(serverSession.email || '')
+      } catch {}
     }
 
-    if (adminCookie) {
-      const sessionData = JSON.parse(adminCookie)
-      setRouteAdminId(sessionData.adminId)
-      setAdminName(sessionData.adminName)
-      setAdminEmail(sessionData.email)
-      localStorage.setItem('adminId', sessionData.adminId)
-    } else if (adminSession) {
-      setRouteAdminId(adminSession)
+    loadAdminSession()
+
+    return () => {
+      isMounted = false
     }
   }, [hasDirectProps, navigate])
 
@@ -1330,9 +1331,8 @@ const AdminManageSlot = ({ field, adminId, onClose, embedded = false }) => {
     fetchField()
   }, [hasDirectProps, routeAdminId, fieldId])
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminId')
-    Cookies.remove('admin_session')
+  const handleLogout = async () => {
+    await logoutSession()
     navigate('/login')
   }
 

@@ -80,6 +80,16 @@ Create a root `.env` file (same level as `docker-compose.yml`) and configure:
 NODE_ENV=development
 PORT=5000
 
+# Local example: http://localhost:5173,http://localhost:8080
+CORS_ORIGIN=http://localhost:5173
+
+# Trust reverse proxy (required for secure cookies behind nginx/traefik)
+TRUST_PROXY=false
+
+AUTH_COOKIE_NAME=mainyuk_session
+SESSION_TTL_DAYS=7
+SESSION_TOKEN_BYTES=32
+
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=your_mysql_user
@@ -106,6 +116,7 @@ VITE_API_BASE_URL=http://localhost:5000/api
 Notes:
 - OTP sending depends on `RESEND_API_KEY` and `RESEND_FROM`.
 - Uploaded images are served from `/uploads` and stored in `dev-storage/uploads` by default.
+- `mainyuk_session` in browser local storage now stores only the opaque session token.
 
 ### Database Requirements
 
@@ -118,6 +129,7 @@ This repository does not include migration/seed SQL files. The app expects these
 - `booking`
 - `booking_slot`
 - `payment`
+- `auth_session`
 
 You can create all required tables with one command (run this after the database container is up):
 

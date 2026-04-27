@@ -1,9 +1,103 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const db = require('../config/database');
 const { otpStore, passwordResetStore, generateOtp, generateResetToken, sendOtpEmail } = require('../utils/otp');
 
 const router = express.Router();
+
+const SESSION_TTL_DAYS = Number(process.env.SESSION_TTL_DAYS || 7);
+const SESSION_TOKEN_BYTES = Number(process.env.SESSION_TOKEN_BYTES || 32);
+const LEGACY_SESSION_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'mainyuk_session';
+
+const getBearerToken = (req) => {
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  return '';
+};
+
+const hashSessionToken = (token) =>
+  crypto.createHash('sha256').update(String(token), 'utf8').digest('hex');
+
+const createDbSession = async ({ id, name, email, phone, role }) => {
+  const rawToken = crypto.randomBytes(Math.max(16, SESSION_TOKEN_BYTES)).toString('hex');
+  const tokenHash = hashSessionToken(rawToken);
+  const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
+
+  await db.execute(
+    `INSERT INTO auth_session (
+      token_hash,
+      account_role,
+      account_id,
+      account_name,
+      account_email,
+      account_phone,
+      expires_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      tokenHash,
+      String(role || ''),
+      Number(id),
+      String(name || ''),
+      String(email || ''),
+      String(phone || ''),
+      expiresAt,
+    ]
+  );
+
+  return rawToken;
+};
+
+const requireAuth = (role) => async (req, res, next) => {
+  const rawToken = getBearerToken(req);
+  if (!rawToken) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  try {
+    const tokenHash = hashSessionToken(rawToken);
+    const [rows] = await db.execute(
+      `SELECT id, account_role, account_id, account_name, account_email, account_phone, expires_at
+       FROM auth_session
+       WHERE token_hash = ?
+         AND revoked_at IS NULL
+       LIMIT 1`,
+      [tokenHash]
+    );
+
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid session token' });
+    }
+
+    const session = rows[0];
+    if (new Date(session.expires_at).getTime() <= Date.now()) {
+      await db.execute('UPDATE auth_session SET revoked_at = NOW() WHERE id = ?', [session.id]);
+      return res.status(401).json({ error: 'Session expired' });
+    }
+
+    if (role && session.account_role !== role) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    req.auth = {
+      sessionId: Number(session.id),
+      role: session.account_role,
+      sub: String(session.account_id),
+      name: session.account_name || '',
+      email: session.account_email || '',
+      phone: session.account_phone || '',
+      token: rawToken,
+    };
+
+    await db.execute('UPDATE auth_session SET last_used_at = NOW() WHERE id = ?', [session.id]);
+    return next();
+  } catch (err) {
+    console.error('[AUTH] Session validation failed:', err);
+    return res.status(500).json({ error: 'Failed to validate session' });
+  }
+};
 
 const normalizeOtpRoleKey = (role = '') => {
   const normalized = String(role).trim().toLowerCase();
@@ -372,13 +466,64 @@ router.post('/verify-otp', async (req, res) => {
     }
   }
 
+  const sessionRole = entry.role === 'Business' ? 'Business' : 'User';
+  const sessionToken = await createDbSession({
+    id: userData.id,
+    name: userData.name,
+    email: userData.email,
+    phone: userData.phone,
+    role: sessionRole,
+  });
+
   delete otpStore[key];
 
-  res.json({ 
-    success: true, 
-    user: userData,
-    redirect: entry.role === 'Business' ? '/admin/dashboard' : '/venue' 
+  res.json({
+    success: true,
+    sessionToken,
+    user: {
+      id: Number(userData.id),
+      name: String(userData.name || ''),
+      email: String(userData.email || ''),
+      phone: String(userData.phone || ''),
+      role: sessionRole,
+    },
+    redirect: sessionRole === 'Business' ? '/admin/dashboard' : '/venue'
   });
+});
+
+router.get('/session', requireAuth(), async (req, res) => {
+  const authPayload = req.auth || {};
+  const role = authPayload.role === 'Business' ? 'Business' : 'User';
+
+  return res.json({
+    authenticated: true,
+    user: {
+      id: Number(authPayload.sub),
+      name: authPayload.name || '',
+      email: authPayload.email || '',
+      phone: authPayload.phone || '',
+      role,
+    },
+  });
+});
+
+router.post('/logout', async (req, res) => {
+  const rawToken = getBearerToken(req);
+  if (!rawToken) {
+    return res.json({ success: true, message: 'Already logged out' });
+  }
+
+  try {
+    await db.execute(
+      'UPDATE auth_session SET revoked_at = NOW() WHERE token_hash = ? AND revoked_at IS NULL',
+      [hashSessionToken(rawToken)]
+    );
+
+    return res.json({ success: true, message: 'Logged out successfully' });
+  } catch (err) {
+    console.error('[LOGOUT] Failed to revoke session:', err);
+    return res.status(500).json({ error: 'Failed to logout' });
+  }
 });
 
 router.post('/reset-password', async (req, res) => {
@@ -433,17 +578,18 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-router.get('/admin/profile', async (req, res) => {
-  const { email, adminId } = req.query;
+router.get('/admin/profile', requireAuth('Business'), async (req, res) => {
+  const sessionAdminId = Number(req.auth?.sub);
+  const sessionEmail = String(req.auth?.email || '');
 
-  if (!email && !adminId) {
-    return res.status(400).json({ error: 'email or adminId is required' });
+  if (!sessionAdminId && !sessionEmail) {
+    return res.status(401).json({ error: 'Invalid session payload' });
   }
 
   try {
-    const [rows] = email
-      ? await db.execute('SELECT id, name, email, number, created_at FROM admin WHERE email = ? LIMIT 1', [email])
-      : await db.execute('SELECT id, name, email, number, created_at FROM admin WHERE id = ? LIMIT 1', [adminId]);
+    const [rows] = sessionAdminId
+      ? await db.execute('SELECT id, name, email, number, created_at FROM admin WHERE id = ? LIMIT 1', [sessionAdminId])
+      : await db.execute('SELECT id, name, email, number, created_at FROM admin WHERE email = ? LIMIT 1', [sessionEmail]);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Admin account not found' });
@@ -466,17 +612,18 @@ router.get('/admin/profile', async (req, res) => {
   }
 });
 
-router.get('/user/profile', async (req, res) => {
-  const { email, userId } = req.query;
+router.get('/user/profile', requireAuth('User'), async (req, res) => {
+  const sessionUserId = Number(req.auth?.sub);
+  const sessionEmail = String(req.auth?.email || '');
 
-  if (!email && !userId) {
-    return res.status(400).json({ error: 'email or userId is required' });
+  if (!sessionUserId && !sessionEmail) {
+    return res.status(401).json({ error: 'Invalid session payload' });
   }
 
   try {
-    const [rows] = email
-      ? await db.execute('SELECT id, name, email, number, created_at FROM user WHERE email = ? LIMIT 1', [email])
-      : await db.execute('SELECT id, name, email, number, created_at FROM user WHERE id = ? LIMIT 1', [userId]);
+    const [rows] = sessionUserId
+      ? await db.execute('SELECT id, name, email, number, created_at FROM user WHERE id = ? LIMIT 1', [sessionUserId])
+      : await db.execute('SELECT id, name, email, number, created_at FROM user WHERE email = ? LIMIT 1', [sessionEmail]);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'User account not found' });
@@ -499,11 +646,16 @@ router.get('/user/profile', async (req, res) => {
   }
 });
 
-router.post('/admin/change-password', async (req, res) => {
+router.post('/admin/change-password', requireAuth('Business'), async (req, res) => {
   const { adminId, currentPassword, newPassword } = req.body;
+  const sessionAdminId = Number(req.auth?.sub);
 
-  if (!adminId || !currentPassword || !newPassword) {
-    return res.status(400).json({ error: 'adminId, currentPassword, and newPassword are required' });
+  if (adminId && Number(adminId) !== sessionAdminId) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'currentPassword and newPassword are required' });
   }
 
   if (String(newPassword).length < 6) {
@@ -511,7 +663,7 @@ router.post('/admin/change-password', async (req, res) => {
   }
 
   try {
-    const [rows] = await db.execute('SELECT id, password FROM admin WHERE id = ?', [adminId]);
+    const [rows] = await db.execute('SELECT id, password FROM admin WHERE id = ?', [sessionAdminId]);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Admin account not found' });
@@ -530,7 +682,7 @@ router.post('/admin/change-password', async (req, res) => {
     }
 
     const newHashedPassword = await bcrypt.hash(newPassword, 10);
-    await db.execute('UPDATE admin SET password = ? WHERE id = ?', [newHashedPassword, adminId]);
+    await db.execute('UPDATE admin SET password = ? WHERE id = ?', [newHashedPassword, sessionAdminId]);
 
     return res.json({ success: true, message: 'Password updated successfully' });
   } catch (err) {
@@ -539,11 +691,16 @@ router.post('/admin/change-password', async (req, res) => {
   }
 });
 
-router.post('/user/change-password', async (req, res) => {
+router.post('/user/change-password', requireAuth('User'), async (req, res) => {
   const { userId, currentPassword, newPassword } = req.body;
+  const sessionUserId = Number(req.auth?.sub);
 
-  if (!userId || !currentPassword || !newPassword) {
-    return res.status(400).json({ error: 'userId, currentPassword, and newPassword are required' });
+  if (userId && Number(userId) !== sessionUserId) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'currentPassword and newPassword are required' });
   }
 
   if (String(newPassword).length < 6) {
@@ -551,7 +708,7 @@ router.post('/user/change-password', async (req, res) => {
   }
 
   try {
-    const [rows] = await db.execute('SELECT id, password FROM user WHERE id = ?', [userId]);
+    const [rows] = await db.execute('SELECT id, password FROM user WHERE id = ?', [sessionUserId]);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'User account not found' });
@@ -570,7 +727,7 @@ router.post('/user/change-password', async (req, res) => {
     }
 
     const newHashedPassword = await bcrypt.hash(newPassword, 10);
-    await db.execute('UPDATE user SET password = ? WHERE id = ?', [newHashedPassword, userId]);
+    await db.execute('UPDATE user SET password = ? WHERE id = ?', [newHashedPassword, sessionUserId]);
 
     return res.json({ success: true, message: 'Password updated successfully' });
   } catch (err) {

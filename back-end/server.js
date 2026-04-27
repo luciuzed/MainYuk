@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
@@ -31,8 +32,40 @@ const getTodayInAppTimezone = () => {
 
 const app = express();
 
+const parseBooleanEnv = (value, fallback = false) => {
+  if (value == null) return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+};
+
+const defaultAllowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:8080',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:8080',
+];
+
+const configuredOrigins = String(process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = configuredOrigins.length > 0 ? configuredOrigins : defaultAllowedOrigins;
+
+if (parseBooleanEnv(process.env.TRUST_PROXY, process.env.NODE_ENV === 'production')) {
+  app.set('trust proxy', 1);
+}
+
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use('/uploads', express.static(uploadsDir));
 app.use('/qr', express.static(paymentQrDir));

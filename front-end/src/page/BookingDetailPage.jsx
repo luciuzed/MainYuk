@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Cookies from 'js-cookie';
 import {
   FaMapMarkerAlt,
   FaChevronLeft,
@@ -10,6 +9,7 @@ import LoadingOverlay from '../components/LoadingOverlay';
 import BookingSummaryModal from './BookingSummaryModal';
 import BookingLimitModal from './BookingLimitModal';
 import { API_BASE_URL, apiUrl } from '../config/api';
+import { fetchServerSession } from '../utils/session';
 
 const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
 const LOCAL_UPLOAD_IMAGE_PATTERN = /^\/uploads\/.+\.(jpe?g|png)$/i;
@@ -205,17 +205,11 @@ Total: Rp ${totalPrice.toLocaleString()}`;
   };
 
   const checkBookingLimit = async () => {
-    const userSession = Cookies.get('user_session');
-
-    if (!userSession) {
-      navigate('/login');
-      return false;
-    }
-
     try {
       setIsCheckingBookingLimit(true);
-      const userData = JSON.parse(userSession);
-      const userId = userData?.id;
+      const userData = await fetchServerSession();
+
+      const userId = userData?.role === 'User' ? userData?.id : null;
 
       if (!userId) {
         navigate('/login');
